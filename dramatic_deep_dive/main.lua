@@ -1,74 +1,70 @@
-local function compileSource(mod, name, source)
-  local compiler = loadstring or load
-  local chunk, loadError = compiler(source, "@" .. mod.path .. "/" .. name)
-  if not chunk then
-    mod.log:error("Could not compile %s: %s", name, tostring(loadError))
-    return nil
-  end
-  local ok, value = pcall(chunk)
-  if not ok then
-    mod.log:error("Could not initialize %s: %s", name, tostring(value))
-    return nil
-  end
-  return value
-end
-
 local function loadModule(mod, relativePath)
   local source, readError = mod:read(relativePath)
   if not source then
     mod.log:error("Could not read %s: %s", relativePath, tostring(readError))
     return nil
   end
-  return compileSource(mod, relativePath, source)
-end
-
-local function loadCombinedModule(mod, name, paths)
-  local chunks = {}
-  for _, relativePath in ipairs(paths) do
-    local source, readError = mod:read(relativePath)
-    if not source then
-      mod.log:error("Could not read %s: %s", relativePath, tostring(readError))
-      return nil
-    end
-    chunks[#chunks + 1] = source
+  local compiler = loadstring or load
+  local chunk, loadError = compiler(source, "@" .. mod.path .. "/" .. relativePath)
+  if not chunk then
+    mod.log:error("Could not compile %s: %s", relativePath, tostring(loadError))
+    return nil
   end
-  return compileSource(mod, name, table.concat(chunks, "\n"))
+  local ok, value = pcall(chunk)
+  if not ok then
+    mod.log:error("Could not initialize %s: %s", relativePath, tostring(value))
+    return nil
+  end
+  return value
 end
 
 return function(mod)
+  local Content = loadModule(mod, "src/Content.lua")
   local VolumeRegistry = loadModule(mod, "src/VolumeRegistry.lua")
   local FollowerSprites = loadModule(mod, "src/FollowerSprites.lua")
-  local DeepDive = loadCombinedModule(mod, "src/DeepDive.lua", {
-    "src/deep_dive/01.lua",
-    "src/deep_dive/02.lua",
-    "src/deep_dive/03.lua",
-  })
+  local FollowerBridge = loadModule(mod, "src/FollowerBridge.lua")
+  local DiveTravel = loadModule(mod, "src/DiveTravel.lua")
+  local Progression = loadModule(mod, "src/Progression.lua")
+  local DeepDive = loadModule(mod, "src/DeepDive.lua")
   local VoxelRenderer = loadModule(mod, "src/VoxelRenderer.lua")
   local volumeDefinitions = loadModule(mod, "data/volumes.lua")
-  if not (VolumeRegistry and FollowerSprites and DeepDive and VoxelRenderer and volumeDefinitions) then return end
+  local diveDefinitions = loadModule(mod, "data/dive_links.lua")
+  if not (Content and VolumeRegistry and FollowerSprites and FollowerBridge and DiveTravel
+      and Progression and DeepDive and VoxelRenderer and volumeDefinitions and diveDefinitions) then
+    return
+  end
+  if not Content.register(mod) then return end
 
   local registry = VolumeRegistry.new(mod)
   for id, definition in pairs(volumeDefinitions) do
-    local ok, err = registry:register(id, definition, mod.id)
-    if not ok then
+    local volume, err = registry:register(id, definition, mod.id)
+    if not volume then
       mod.log:error("Could not register deep-dive volume %s: %s", tostring(id), tostring(err))
       return
     end
   end
 
   local sprites = FollowerSprites.new(mod)
+  local followerBridge = FollowerBridge.new(mod)
+  local travel = DiveTravel.new(mod, diveDefinitions)
   local voxelRenderer = VoxelRenderer.new(mod, registry)
-  local controller = DeepDive.new(mod, registry, sprites, voxelRenderer)
+  local controller = DeepDive.new(mod, registry, sprites, voxelRenderer, followerBridge, travel)
   voxelRenderer:setController(controller)
+
+  travel:install()
+  Progression.install(mod)
   controller:install()
   voxelRenderer:install()
 
   mod.exports.isActive = function() return controller:isActive() end
+  mod.exports.isUnderwater = function() return controller:isActive() end
   mod.exports.currentDepth = function() return controller:currentDepth() end
   mod.exports.targetDepth = function() return controller:targetDepth() end
   mod.exports.currentVolume = function() return controller:currentVolume() end
   mod.exports.floorDepthAt = function(mapId, x, y) return registry:floorDepthAt(mapId, x, y) end
   mod.exports.canSwimAt = function(mapId, x, y) return registry:contains(mapId, x, y) end
+  mod.exports.canDiveHere = function(game) return travel:canDiveHere(game) end
+  mod.exports.canSurfaceHere = function(game) return travel:canSurfaceHere(game) end
   mod.exports.registerVolume = function(id, definition, owner)
     return registry:register(id, definition, owner or "external")
   end
