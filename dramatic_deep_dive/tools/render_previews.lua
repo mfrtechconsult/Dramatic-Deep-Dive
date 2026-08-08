@@ -4,6 +4,7 @@ local BLOCK_PX = 8
 local CELL_PX = BLOCK_PX / 2
 local HEADER = 42
 local MARGIN = 16
+local MIN_WIDTH = 420
 
 local function mkdir(path)
   os.execute(string.format('mkdir -p "%s"', path))
@@ -88,9 +89,10 @@ end
 local function render(map, volume, scene, setpiece)
   local mapW = map.width * BLOCK_PX
   local mapH = map.height * BLOCK_PX
-  local width = mapW + MARGIN * 2
+  local width = math.max(MIN_WIDTH, mapW + MARGIN * 2)
   local height = mapH + HEADER + MARGIN * 2 + 34
-  local ox, oy = MARGIN, HEADER + MARGIN
+  local ox = math.floor((width - mapW) / 2)
+  local oy = HEADER + MARGIN
   local out = {}
   out[#out + 1] = string.format(
     '<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="0 0 %d %d">',
