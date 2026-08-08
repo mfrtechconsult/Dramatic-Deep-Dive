@@ -1,10 +1,58 @@
--- Standalone DIVE/SURFACE links owned by Dramatic Deep Dive.
--- The Route 21 coordinates are intentionally based on the proven Kanto Dive
--- layout while the underwater destination is now a DDD-owned map.
+-- Standalone DIVE/SURFACE travel owned entirely by Dramatic Deep Dive.
 return {
+  route19_reef_passage = {
+    requiredBadge = "VOLCANOBADGE",
+    underwaterMapId = "DDD_ROUTE19_REEF_PASSAGE",
+    submergedMaps = { "DDD_ROUTE19_REEF_PASSAGE" },
+    links = {
+      {
+        id = "route19_reef_east",
+        surface = { mapId = "ROUTE_19", x = 12, y = 30 },
+        underwater = { mapId = "DDD_ROUTE19_REEF_PASSAGE", x = 14, y = 2 },
+        width = 4, height = 4,
+      },
+      {
+        id = "route19_reef_west",
+        surface = { mapId = "ROUTE_19", x = 4, y = 30 },
+        underwater = { mapId = "DDD_ROUTE19_REEF_PASSAGE", x = 2, y = 2 },
+        width = 4, height = 4,
+      },
+    },
+  },
+
+  route20_seafoam = {
+    requiredBadge = "VOLCANOBADGE",
+    underwaterMapId = "DDD_ROUTE20_SEAFLOOR",
+    submergedMaps = {
+      "DDD_ROUTE20_SEAFLOOR",
+      "DDD_SEAFOAM_SUNKEN_CAVE",
+    },
+    links = {
+      {
+        id = "route20_west_basin",
+        surface = { mapId = "ROUTE_20", x = 4, y = 4 },
+        underwater = { mapId = "DDD_ROUTE20_SEAFLOOR", x = 4, y = 4 },
+        width = 34, height = 10,
+      },
+      {
+        id = "route20_seafoam_channel",
+        surface = { mapId = "ROUTE_20", x = 44, y = 12 },
+        underwater = { mapId = "DDD_ROUTE20_SEAFLOOR", x = 44, y = 12 },
+        width = 12, height = 4,
+      },
+      {
+        id = "route20_east_basin",
+        surface = { mapId = "ROUTE_20", x = 62, y = 4 },
+        underwater = { mapId = "DDD_ROUTE20_SEAFLOOR", x = 62, y = 4 },
+        width = 34, height = 10,
+      },
+    },
+  },
+
   route21_abyss = {
     requiredBadge = "VOLCANOBADGE",
     underwaterMapId = "DDD_ROUTE21_ABYSS",
+    submergedMaps = { "DDD_ROUTE21_ABYSS" },
     links = {
       {
         id = "route21_north_shelf",
