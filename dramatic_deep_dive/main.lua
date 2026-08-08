@@ -27,15 +27,18 @@ return function(mod)
   local Progression = loadModule(mod, "src/Progression.lua")
   local DeepDive = loadModule(mod, "src/DeepDive.lua")
   local SceneDecor = loadModule(mod, "src/SceneDecor.lua")
+  local SetpieceDecor = loadModule(mod, "src/SetpieceDecor.lua")
   local SceneGameplay = loadModule(mod, "src/SceneGameplay.lua")
   local UnderwaterLighting = loadModule(mod, "src/UnderwaterLighting.lua")
   local VoxelRenderer = loadModule(mod, "src/VoxelRenderer.lua")
   local volumeDefinitions = loadModule(mod, "data/volumes.lua")
   local diveDefinitions = loadModule(mod, "data/dive_links.lua")
   local sceneDefinitions = loadModule(mod, "data/scenes.lua")
+  local setpieceDefinitions = loadModule(mod, "data/setpieces.lua")
   if not (Content and VolumeRegistry and FollowerSprites and FollowerBridge and DiveTravel
-      and Progression and DeepDive and SceneDecor and SceneGameplay and UnderwaterLighting
-      and VoxelRenderer and volumeDefinitions and diveDefinitions and sceneDefinitions) then
+      and Progression and DeepDive and SceneDecor and SetpieceDecor and SceneGameplay
+      and UnderwaterLighting and VoxelRenderer and volumeDefinitions and diveDefinitions
+      and sceneDefinitions and setpieceDefinitions) then
     return
   end
   if not Content.register(mod) then return end
@@ -53,7 +56,8 @@ return function(mod)
   local followerBridge = FollowerBridge.new(mod)
   local travel = DiveTravel.new(mod, diveDefinitions)
   local sceneDecor = SceneDecor.new(mod, registry, sceneDefinitions)
-  local voxelRenderer = VoxelRenderer.new(mod, registry, sceneDecor)
+  local setpieceDecor = SetpieceDecor.new(mod, registry, setpieceDefinitions)
+  local voxelRenderer = VoxelRenderer.new(mod, registry, sceneDecor, setpieceDecor)
   local controller = DeepDive.new(mod, registry, sprites, voxelRenderer, followerBridge, travel)
   local sceneGameplay = SceneGameplay.new(mod, controller, voxelRenderer)
   local underwaterLighting = UnderwaterLighting.new(mod, controller)
