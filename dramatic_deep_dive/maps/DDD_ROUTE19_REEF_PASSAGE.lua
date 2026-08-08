@@ -1,0 +1,20 @@
+return {
+  id = "DDD_ROUTE19_REEF_PASSAGE",
+  label = "DramaticDeepDiveRoute19ReefPassage",
+  index = 1203,
+  tileset = "DDD_UNDERWATER",
+  width = 10,
+  height = 4,
+  borderBlock = 15,
+  outdoor = false,
+  region = "DRAMATIC_DEEP_DIVE",
+  blocks = {
+    15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+    15, 0, 0, 15, 15, 15, 15, 0, 0, 15,
+    15, 0, 0, 1, 1, 1, 1, 0, 0, 15,
+    15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+  },
+  warps = {},
+  objects = {},
+  signs = {},
+}
