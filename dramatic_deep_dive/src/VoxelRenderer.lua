@@ -2,7 +2,7 @@ local VoxelRenderer = {}
 VoxelRenderer.__index = VoxelRenderer
 
 local CELL = 16
-local WATER_ALPHA = 0.34
+local WATER_ALPHA = 0.27
 
 local function addVertex(out, x, y, z, u, v, shade)
   out[#out + 1] = { x, y, z, u or 0, v or 0, shade or 1 }
@@ -47,10 +47,11 @@ local function release(value)
   if value and value.release then pcall(value.release, value) end
 end
 
-function VoxelRenderer.new(mod, registry)
+function VoxelRenderer.new(mod, registry, sceneDecor)
   return setmetatable({
     mod = mod,
     registry = registry,
+    sceneDecor = sceneDecor,
     controller = nil,
     voxel3d = nil,
     installed = false,
@@ -89,10 +90,10 @@ end
 
 function VoxelRenderer:textures()
   if not self.floorTexture then
-    self.floorTexture = self:makeTexture(0.20, 0.36, 0.33)
+    self.floorTexture = self:makeTexture(0.16, 0.30, 0.30)
   end
   if not self.waterTexture then
-    self.waterTexture = self:makeTexture(0.22, 0.62, 0.82)
+    self.waterTexture = self:makeTexture(0.20, 0.58, 0.80)
   end
   return self.floorTexture, self.waterTexture
 end
@@ -114,9 +115,6 @@ function VoxelRenderer:geometry(volume)
   local waterVertices = {}
   local baseY = volume.surfaceHeight - volume.defaultFloorDepth
 
-  -- The default depth is the deepest authored bottom. DepthZones are shelves
-  -- raised above it; using that rule keeps the runtime floor query and the
-  -- geometry exactly aligned without needing boolean mesh subtraction.
   for _, rect in ipairs(volume.swimVolumes) do
     local x0, z0, x1, z1 = bounds(rect)
     addTop(floorVertices, x0, z0, x1, z1, baseY, 0.90)
@@ -149,9 +147,6 @@ function VoxelRenderer:drawCurrentVolume()
   local floorTexture, waterTexture = self:textures()
   if not (geo and floorTexture and waterTexture) then return end
 
-  -- These meshes use world-pixel coordinates directly. They are companion
-  -- geometry, not tileset-atlas geometry, so neither voxel seam UVs nor the
-  -- fork's window-glass atlas mask apply to them.
   if type(Voxel3D.seams) == "function" then Voxel3D.seams(false) end
   if type(Voxel3D.glass) == "function" then Voxel3D.glass(false) end
 
@@ -161,10 +156,14 @@ function VoxelRenderer:drawCurrentVolume()
     Voxel3D.draw(geo.floor, floorTexture)
   end
 
+  -- Procedural landmarks, coral, kelp, ruins, fish and bubbles share the
+  -- exact same 3D pass as the terrain, so they occlude correctly instead of
+  -- looking like flat screen-space decorations.
+  if self.sceneDecor then
+    self.sceneDecor:draw(volume)
+  end
+
   if geo.surface then
-    -- The water ceiling is translucent and does not write depth. Terrain in
-    -- front of it still occludes it, but the surface cannot punch a sheet
-    -- into later compositing or hide the player just because it was drawn last.
     pcall(love.graphics.setDepthMode, "lequal", false)
     love.graphics.setColor(1, 1, 1, WATER_ALPHA)
     Voxel3D.draw(geo.surface, waterTexture)
@@ -174,6 +173,16 @@ function VoxelRenderer:drawCurrentVolume()
 
   if type(Voxel3D.glass) == "function" then Voxel3D.glass(true) end
   if type(Voxel3D.seams) == "function" then Voxel3D.seams(true) end
+end
+
+function VoxelRenderer:blocksCell(mapId, cellX, cellY, depth)
+  return self.sceneDecor
+    and self.sceneDecor:blocksCell(mapId, cellX, cellY, depth) == true
+    or false
+end
+
+function VoxelRenderer:districtAt(mapId, worldZ)
+  return self.sceneDecor and self.sceneDecor:districtAt(mapId, worldZ) or nil
 end
 
 function VoxelRenderer:install()
@@ -188,6 +197,7 @@ function VoxelRenderer:install()
   end
 
   self.voxel3d = Voxel3D
+  if self.sceneDecor then self.sceneDecor:setVoxel3D(Voxel3D) end
   local renderer = self
   local innerEndScene = Voxel3D.endScene
   function Voxel3D.endScene(...)
@@ -214,6 +224,7 @@ function VoxelRenderer:invalidate()
   release(self.waterTexture)
   self.floorTexture = nil
   self.waterTexture = nil
+  if self.sceneDecor then self.sceneDecor:invalidate() end
 end
 
 return VoxelRenderer
