@@ -12,6 +12,7 @@ local mapSpecs = dofile(ROOT .. "data/maps.lua")
 local volumes = dofile(ROOT .. "data/volumes.lua")
 local scenes = dofile(ROOT .. "data/scenes.lua")
 local setpieces = dofile(ROOT .. "data/setpieces.lua")
+local depthEncounters = dofile(ROOT .. "data/depth_encounters.lua")
 
 local minimumUsableDepth = {
   DDD_ROUTE19_REEF_PASSAGE = 130,
@@ -26,13 +27,15 @@ local function byMap(collection, mapId)
   end
 end
 
-local totalStructures, totalScatter, totalVents, totalSchools, totalSetpieces = 0, 0, 0, 0, 0
+local totalStructures, totalScatter, totalVents = 0, 0, 0
+local totalSchools, totalSetpieces, totalEncounterBands = 0, 0, 0
 
 for _, spec in ipairs(mapSpecs) do
   local map = dofile(ROOT .. spec.file)
   local volume = byMap(volumes, map.id)
   local scene = byMap(scenes, map.id)
   local setpiece = byMap(setpieces, map.id)
+  local encounterBands = depthEncounters[map.id]
   check(volume ~= nil, map.id .. " volume missing")
   check(scene ~= nil, map.id .. " scene missing")
   check(scene.mapId == map.id, map.id .. " scene map id mismatch")
@@ -116,6 +119,31 @@ for _, spec in ipairs(mapSpecs) do
     totalSetpieces = totalSetpieces + #(setpiece.pieces or {})
   end
 
+  -- Every legal continuous depth must map to an encounter ecology band.
+  check(type(encounterBands) == "table" and #encounterBands > 0,
+    map.id .. " has no depth encounter bands")
+  local encounterCursor = 0
+  for index, band in ipairs(encounterBands) do
+    check(type(band.id) == "string" and band.id ~= "", map.id .. " encounter band missing id")
+    check((band.minDepth or -1) == encounterCursor,
+      string.format("%s encounter band %d leaves a depth gap", map.id, index))
+    check((band.maxDepth or 0) > (band.minDepth or 0), map.id .. " encounter band invalid range")
+    check(type(band.rate) == "number" and band.rate > 0 and band.rate <= 255,
+      map.id .. " encounter band invalid rate")
+    check(type(band.slots) == "table" and #band.slots == 10,
+      map.id .. " encounter band must keep 10 vanilla slots")
+    for slotIndex, slot in ipairs(band.slots or {}) do
+      check(type(slot.species) == "string" and slot.species ~= "",
+        string.format("%s encounter band %d slot %d missing species", map.id, index, slotIndex))
+      check(type(slot.level) == "number" and slot.level > 0,
+        string.format("%s encounter band %d slot %d invalid level", map.id, index, slotIndex))
+    end
+    encounterCursor = band.maxDepth
+  end
+  check(encounterCursor > usableDepth,
+    map.id .. " encounter bands do not cover deepest legal swimming depth")
+  totalEncounterBands = totalEncounterBands + #encounterBands
+
   totalStructures = totalStructures + #(scene.structures or {})
   totalScatter = totalScatter + #(scene.scatter or {})
   totalVents = totalVents + #(scene.bubbleVents or {})
@@ -125,5 +153,6 @@ end
 check(#mapSpecs == 4, "expected the complete four-map standalone migration")
 
 print(string.format(
-  "Deep Dive content OK: %d maps, %d structures, %d scatter groups, %d setpieces, %d vents, %d fish schools",
-  #mapSpecs, totalStructures, totalScatter, totalSetpieces, totalVents, totalSchools))
+  "Deep Dive content OK: %d maps, %d encounter bands, %d structures, %d scatter groups, %d setpieces, %d vents, %d fish schools",
+  #mapSpecs, totalEncounterBands, totalStructures, totalScatter,
+  totalSetpieces, totalVents, totalSchools))
