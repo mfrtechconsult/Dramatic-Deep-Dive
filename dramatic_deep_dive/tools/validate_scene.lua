@@ -13,6 +13,7 @@ local volumes = dofile(ROOT .. "data/volumes.lua")
 local scenes = dofile(ROOT .. "data/scenes.lua")
 local setpieces = dofile(ROOT .. "data/setpieces.lua")
 local depthEncounters = dofile(ROOT .. "data/depth_encounters.lua")
+local salvage = dofile(ROOT .. "data/salvage.lua")
 
 local minimumUsableDepth = {
   DDD_ROUTE19_REEF_PASSAGE = 130,
@@ -27,8 +28,23 @@ local function byMap(collection, mapId)
   end
 end
 
+local function contains(rect, x, y)
+  return x >= rect.left and x <= rect.right and y >= rect.top and y <= rect.bottom
+end
+
+local function floorDepthAt(volume, worldX, worldZ)
+  local cellX = math.floor(worldX / 16)
+  local cellY = math.floor(worldZ / 16)
+  local depth = volume.defaultFloorDepth
+  for _, zone in ipairs(volume.depthZones or {}) do
+    if contains(zone, cellX, cellY) then depth = math.min(depth, zone.floorDepth) end
+  end
+  return depth
+end
+
 local totalStructures, totalScatter, totalVents = 0, 0, 0
-local totalSchools, totalSetpieces, totalEncounterBands = 0, 0, 0
+local totalSchools, totalSetpieces, totalEncounterBands, totalSalvage = 0, 0, 0, 0
+local salvageIds = {}
 
 for _, spec in ipairs(mapSpecs) do
   local map = dofile(ROOT .. spec.file)
@@ -36,6 +52,7 @@ for _, spec in ipairs(mapSpecs) do
   local scene = byMap(scenes, map.id)
   local setpiece = byMap(setpieces, map.id)
   local encounterBands = depthEncounters[map.id]
+  local salvageNodes = salvage[map.id] or {}
   check(volume ~= nil, map.id .. " volume missing")
   check(scene ~= nil, map.id .. " scene missing")
   check(scene.mapId == map.id, map.id .. " scene map id mismatch")
@@ -119,7 +136,6 @@ for _, spec in ipairs(mapSpecs) do
     totalSetpieces = totalSetpieces + #(setpiece.pieces or {})
   end
 
-  -- Every legal continuous depth must map to an encounter ecology band.
   check(type(encounterBands) == "table" and #encounterBands > 0,
     map.id .. " has no depth encounter bands")
   local encounterCursor = 0
@@ -144,6 +160,28 @@ for _, spec in ipairs(mapSpecs) do
     map.id .. " encounter bands do not cover deepest legal swimming depth")
   totalEncounterBands = totalEncounterBands + #encounterBands
 
+  for index, node in ipairs(salvageNodes) do
+    local label = string.format("%s salvage %d", map.id, index)
+    check(type(node.id) == "string" and node.id ~= "", label .. " missing id")
+    check(not salvageIds[node.id], label .. " duplicates salvage id " .. tostring(node.id))
+    salvageIds[node.id] = true
+    pointInWorld(label, node.x, node.z)
+    check(type(node.item) == "string" and node.item ~= "", label .. " missing item")
+    check(type(node.qty) == "number" and node.qty >= 1 and node.qty <= 99, label .. " invalid qty")
+    local floorDepth = floorDepthAt(volume, node.x, node.z)
+    local maxNodeDepth = floorDepth - volume.seabedClearance
+    check(node.depth >= volume.minDepth, label .. " is above the legal swim column")
+    check(node.depth <= maxNodeDepth,
+      string.format("%s at depth %d is below local max %d", label, node.depth, maxNodeDepth))
+    local cellX, cellY = math.floor(node.x / 16), math.floor(node.z / 16)
+    local inside = false
+    for _, swim in ipairs(volume.swimVolumes or {}) do
+      if contains(swim, cellX, cellY) then inside = true break end
+    end
+    check(inside, label .. " is outside every SwimVolume")
+  end
+  totalSalvage = totalSalvage + #salvageNodes
+
   totalStructures = totalStructures + #(scene.structures or {})
   totalScatter = totalScatter + #(scene.scatter or {})
   totalVents = totalVents + #(scene.bubbleVents or {})
@@ -153,6 +191,6 @@ end
 check(#mapSpecs == 4, "expected the complete four-map standalone migration")
 
 print(string.format(
-  "Deep Dive content OK: %d maps, %d encounter bands, %d structures, %d scatter groups, %d setpieces, %d vents, %d fish schools",
-  #mapSpecs, totalEncounterBands, totalStructures, totalScatter,
+  "Deep Dive content OK: %d maps, %d encounter bands, %d salvage caches, %d structures, %d scatter groups, %d setpieces, %d vents, %d fish schools",
+  #mapSpecs, totalEncounterBands, totalSalvage, totalStructures, totalScatter,
   totalSetpieces, totalVents, totalSchools))
