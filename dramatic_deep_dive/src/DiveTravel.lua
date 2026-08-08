@@ -39,7 +39,11 @@ local function insertBeforeStats(items, item)
 end
 
 function DiveTravel.new(mod, definitions)
-  return setmetatable({ mod = mod, zones = definitions or {} }, DiveTravel)
+  return setmetatable({ mod = mod, zones = definitions or {}, transition = nil }, DiveTravel)
+end
+
+function DiveTravel:setTransition(transition)
+  self.transition = transition
 end
 
 function DiveTravel:getSession() return self.mod.save:get(SESSION_KEY) end
@@ -166,33 +170,51 @@ function DiveTravel:beginDive(mon, game, zone, zoneId, position, target)
   self:showText(game, self:displayName(game, mon) .. " used DIVE!", function()
     self:setSession({ active = true, zoneId = zoneId, linkId = target.linkId })
     self:setSurfing(game, true, false)
-    local ok, err = self.mod.world:warpTo(target.mapId, target.x, target.y,
-      target.facing or position.facing, { onDone = function()
-        self:setSurfing(game, true, false)
-        self.mod.events:emit("mod.dramatic_deep_dive.entered", {
-          zoneId = zoneId, linkId = target.linkId, mapId = target.mapId, x = target.x, y = target.y,
-        })
-      end })
-    if not ok then
-      self:setSession(nil)
-      self.mod.log:error("DIVE warp failed: %s", tostring(err))
+
+    local function doWarp()
+      local ok, err = self.mod.world:warpTo(target.mapId, target.x, target.y,
+        target.facing or position.facing, { onDone = function()
+          self:setSurfing(game, true, false)
+          self.mod.events:emit("mod.dramatic_deep_dive.entered", {
+            zoneId = zoneId, linkId = target.linkId,
+            mapId = target.mapId, x = target.x, y = target.y,
+          })
+        end })
+      if not ok then
+        self:setSession(nil)
+        self.mod.log:error("DIVE warp failed: %s", tostring(err))
+        return false
+      end
+      return true
     end
+
+    if not (self.transition and self.transition:beginDive(doWarp)) then doWarp() end
   end)
 end
 
 function DiveTravel:beginSurface(mon, game, zone, zoneId, position, target)
   self:closePartyMenu(game)
-  self:showText(game, self:displayName(game, mon) .. " returned to\nthe surface!", function()
+  self:showText(game, self:displayName(game, mon) .. " used SURFACE!", function()
     self:setSurfing(game, true, false)
-    local ok, err = self.mod.world:warpTo(target.mapId, target.x, target.y,
-      target.facing or position.facing, { onDone = function()
-        self:setSession(nil)
-        self:setSurfing(game, true, true)
-        self.mod.events:emit("mod.dramatic_deep_dive.surfaced", {
-          zoneId = zoneId, linkId = target.linkId, mapId = target.mapId, x = target.x, y = target.y,
-        })
-      end })
-    if not ok then self.mod.log:error("SURFACE warp failed: %s", tostring(err)) end
+
+    local function doWarp()
+      local ok, err = self.mod.world:warpTo(target.mapId, target.x, target.y,
+        target.facing or position.facing, { onDone = function()
+          self:setSession(nil)
+          self:setSurfing(game, true, true)
+          self.mod.events:emit("mod.dramatic_deep_dive.surfaced", {
+            zoneId = zoneId, linkId = target.linkId,
+            mapId = target.mapId, x = target.x, y = target.y,
+          })
+        end })
+      if not ok then
+        self.mod.log:error("SURFACE warp failed: %s", tostring(err))
+        return false
+      end
+      return true
+    end
+
+    if not (self.transition and self.transition:beginSurface(doWarp)) then doWarp() end
   end)
 end
 
