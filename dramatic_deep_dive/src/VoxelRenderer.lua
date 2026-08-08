@@ -47,14 +47,16 @@ local function release(value)
   if value and value.release then pcall(value.release, value) end
 end
 
-function VoxelRenderer.new(mod, registry, sceneDecor)
+function VoxelRenderer.new(mod, registry, sceneDecor, setpieceDecor)
   return setmetatable({
     mod = mod,
     registry = registry,
     sceneDecor = sceneDecor,
+    setpieceDecor = setpieceDecor,
     controller = nil,
     voxel3d = nil,
     installed = false,
+    activeSlot = nil,
     cache = {},
     floorTexture = nil,
     waterTexture = nil,
@@ -62,9 +64,7 @@ function VoxelRenderer.new(mod, registry, sceneDecor)
   }, VoxelRenderer)
 end
 
-function VoxelRenderer:setController(controller)
-  self.controller = controller
-end
+function VoxelRenderer:setController(controller) self.controller = controller end
 
 function VoxelRenderer:providerModule(name)
   if not self.mod.find then return nil end
@@ -76,8 +76,9 @@ function VoxelRenderer:providerModule(name)
 end
 
 function VoxelRenderer:makeTexture(r, g, b)
-  if not (love and love.image and love.image.newImageData
-      and love.graphics and love.graphics.newImage) then return nil end
+  if not (love and love.image and love.image.newImageData and love.graphics and love.graphics.newImage) then
+    return nil
+  end
   local ok, image = pcall(function()
     local data = love.image.newImageData(1, 1)
     data:setPixel(0, 0, r, g, b, 1)
@@ -89,12 +90,8 @@ function VoxelRenderer:makeTexture(r, g, b)
 end
 
 function VoxelRenderer:textures()
-  if not self.floorTexture then
-    self.floorTexture = self:makeTexture(0.16, 0.30, 0.30)
-  end
-  if not self.waterTexture then
-    self.waterTexture = self:makeTexture(0.20, 0.58, 0.80)
-  end
+  if not self.floorTexture then self.floorTexture = self:makeTexture(0.16, 0.30, 0.30) end
+  if not self.waterTexture then self.waterTexture = self:makeTexture(0.20, 0.58, 0.80) end
   return self.floorTexture, self.waterTexture
 end
 
@@ -102,17 +99,14 @@ function VoxelRenderer:makeMesh(vertices)
   local Voxel3D = self.voxel3d
   if not (Voxel3D and Voxel3D.FORMAT and love and love.graphics
       and love.graphics.newMesh and #vertices >= 3) then return nil end
-  local ok, mesh = pcall(love.graphics.newMesh,
-    Voxel3D.FORMAT, vertices, "triangles", "static")
+  local ok, mesh = pcall(love.graphics.newMesh, Voxel3D.FORMAT, vertices, "triangles", "static")
   return ok and mesh or nil
 end
 
 function VoxelRenderer:geometry(volume)
   local hit = self.cache[volume.id]
   if hit then return hit end
-
-  local floorVertices = {}
-  local waterVertices = {}
+  local floorVertices, waterVertices = {}, {}
   local baseY = volume.surfaceHeight - volume.defaultFloorDepth
 
   for _, rect in ipairs(volume.swimVolumes) do
@@ -120,18 +114,12 @@ function VoxelRenderer:geometry(volume)
     addTop(floorVertices, x0, z0, x1, z1, baseY, 0.90)
     addTop(waterVertices, x0, z0, x1, z1, volume.surfaceHeight, 1.00)
   end
-
   for _, zone in ipairs(volume.depthZones) do
     local shelfY = volume.surfaceHeight - zone.floorDepth
-    if shelfY > baseY + 0.01 then
-      addShelf(floorVertices, zone, baseY, shelfY)
-    end
+    if shelfY > baseY + 0.01 then addShelf(floorVertices, zone, baseY, shelfY) end
   end
 
-  hit = {
-    floor = self:makeMesh(floorVertices),
-    surface = self:makeMesh(waterVertices),
-  }
+  hit = { floor = self:makeMesh(floorVertices), surface = self:makeMesh(waterVertices) }
   self.cache[volume.id] = hit
   return hit
 end
@@ -157,6 +145,7 @@ function VoxelRenderer:drawCurrentVolume()
   end
 
   if self.sceneDecor then self.sceneDecor:draw(volume) end
+  if self.setpieceDecor then self.setpieceDecor:draw(volume) end
 
   if geo.surface then
     pcall(love.graphics.setDepthMode, "lequal", false)
@@ -171,9 +160,9 @@ function VoxelRenderer:drawCurrentVolume()
 end
 
 function VoxelRenderer:blocksCell(mapId, cellX, cellY, depth)
-  return self.sceneDecor
-    and self.sceneDecor:blocksCell(mapId, cellX, cellY, depth) == true
-    or false
+  if self.sceneDecor and self.sceneDecor:blocksCell(mapId, cellX, cellY, depth) then return true end
+  if self.setpieceDecor and self.setpieceDecor:blocksCell(mapId, cellX, cellY, depth) then return true end
+  return false
 end
 
 function VoxelRenderer:districtAt(mapId, worldZ)
@@ -183,8 +172,7 @@ end
 function VoxelRenderer:install()
   if self.installed then return true end
   local Voxel3D = self:providerModule("Voxel3D")
-  if not (Voxel3D and type(Voxel3D.beginScene) == "function"
-      and type(Voxel3D.endScene) == "function") then
+  if not (Voxel3D and type(Voxel3D.beginScene) == "function" and type(Voxel3D.endScene) == "function") then
     if not self.warned and self.mod.log then
       self.mod.log:warn("Battle Art Voxel Fork did not expose Voxel3D; custom underwater geometry is disabled")
       self.warned = true
@@ -194,9 +182,7 @@ function VoxelRenderer:install()
 
   self.voxel3d = Voxel3D
   if self.sceneDecor then self.sceneDecor:setVoxel3D(Voxel3D) end
-
-  -- Store the current renderer on the provider so hot reload replaces the
-  -- target instead of stacking another pair of global Voxel3D wrappers.
+  if self.setpieceDecor then self.setpieceDecor:setVoxel3D(Voxel3D) end
   Voxel3D.dramaticDeepDiveRenderer = self
 
   if not Voxel3D.dramaticDeepDiveBeginSceneHook then
@@ -239,9 +225,9 @@ function VoxelRenderer:invalidate()
   end
   release(self.floorTexture)
   release(self.waterTexture)
-  self.floorTexture = nil
-  self.waterTexture = nil
+  self.floorTexture, self.waterTexture = nil, nil
   if self.sceneDecor then self.sceneDecor:invalidate() end
+  if self.setpieceDecor then self.setpieceDecor:invalidate() end
 end
 
 return VoxelRenderer
