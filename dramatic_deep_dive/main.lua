@@ -31,6 +31,7 @@ return function(mod)
   local SceneGameplay = loadModule(mod, "src/SceneGameplay.lua")
   local UnderwaterLighting = loadModule(mod, "src/UnderwaterLighting.lua")
   local SubmergedTransitionGuard = loadModule(mod, "src/SubmergedTransitionGuard.lua")
+  local DiveTransition = loadModule(mod, "src/DiveTransition.lua")
   local DepthEncounters = loadModule(mod, "src/DepthEncounters.lua")
   local AmbientLOD = loadModule(mod, "src/AmbientLOD.lua")
   local VoxelRenderer = loadModule(mod, "src/VoxelRenderer.lua")
@@ -41,9 +42,10 @@ return function(mod)
   local depthEncounterDefinitions = loadModule(mod, "data/depth_encounters.lua")
   if not (Content and VolumeRegistry and FollowerSprites and FollowerBridge and DiveTravel
       and Progression and DeepDive and SceneDecor and SetpieceDecor and SceneGameplay
-      and UnderwaterLighting and SubmergedTransitionGuard and DepthEncounters and AmbientLOD
-      and VoxelRenderer and volumeDefinitions and diveDefinitions and sceneDefinitions
-      and setpieceDefinitions and depthEncounterDefinitions) then
+      and UnderwaterLighting and SubmergedTransitionGuard and DiveTransition
+      and DepthEncounters and AmbientLOD and VoxelRenderer and volumeDefinitions
+      and diveDefinitions and sceneDefinitions and setpieceDefinitions
+      and depthEncounterDefinitions) then
     return
   end
   if not Content.register(mod) then return end
@@ -67,8 +69,10 @@ return function(mod)
   local sceneGameplay = SceneGameplay.new(mod, controller, voxelRenderer)
   local underwaterLighting = UnderwaterLighting.new(mod, controller)
   local transitionGuard = SubmergedTransitionGuard.new(mod, controller, registry)
+  local diveTransition = DiveTransition.new(mod, controller, registry)
   local depthEncounters = DepthEncounters.new(mod, controller, depthEncounterDefinitions)
   local ambientLOD = AmbientLOD.new(mod, sceneDecor)
+  travel:setTransition(diveTransition)
   voxelRenderer:setController(controller)
 
   travel:install()
@@ -80,6 +84,7 @@ return function(mod)
   sceneGameplay:install()
   depthEncounters:install()
   ambientLOD:install()
+  diveTransition:install()
 
   mod.exports.isActive = function() return controller:isActive() end
   mod.exports.isUnderwater = function() return controller:isActive() end
@@ -98,6 +103,7 @@ return function(mod)
     return band and band.id or nil, mapId
   end
   mod.exports.ambientLODStats = function() return ambientLOD:stats() end
+  mod.exports.isTransitioning = function() return diveTransition:isActive() end
   mod.exports.registerVolume = function(id, definition, owner)
     return registry:register(id, definition, owner or "external")
   end
