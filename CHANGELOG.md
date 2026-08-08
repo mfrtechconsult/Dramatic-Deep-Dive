@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.3.0-alpha.1
+
+Underwater environment and exploration pass.
+
+- Added a dedicated procedural 3D scene layer rendered inside Battle Art Voxel Fork's real depth-tested world pass.
+- Split Route 21 into five named underwater districts: Pallet Reef, Kelp Cathedral, Sunken Court, Abyssal Gate and Southern Gardens.
+- Added large voxel landmarks: natural rock arches, stepped rock spires, ancient gates, broken walls, a ring of columns, a submerged shrine and a giant abyss gateway.
+- Added 44+ northern reef corals and a larger southern coral garden with deterministic procedural branching.
+- Added dense voxel kelp forests with tall segmented stalks and side leaves.
+- Added crystal fields and hand-placed crystal clusters around the ruins and central abyss.
+- Added animated bubble vents rising through the water column.
+- Added four animated fish schools moving through 3D world space.
+- Added translucent volumetric-style light shafts descending from the water surface.
+- Added depth-aware underwater lighting: shallow water stays bright cyan while the central abyss becomes progressively darker and bluer.
+- Added physical 3D landmark collision. Tall ruins block swimming at their height but can be crossed by swimming above them.
+- Added district discovery banners when entering a new Route 21 underwater biome.
+- Scoped Deep Dive world geometry to the Voxel world pass so it cannot leak into Voxel battle scenes.
+- Added scene sanity validation to GitHub Actions in addition to Lua/JSON syntax checks.
+
 ## 0.2.0-alpha.1
 
 Standalone architecture milestone.
