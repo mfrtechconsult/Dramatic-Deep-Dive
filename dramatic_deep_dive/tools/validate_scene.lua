@@ -11,6 +11,7 @@ local ROOT = "dramatic_deep_dive/"
 local mapSpecs = dofile(ROOT .. "data/maps.lua")
 local volumes = dofile(ROOT .. "data/volumes.lua")
 local scenes = dofile(ROOT .. "data/scenes.lua")
+local setpieces = dofile(ROOT .. "data/setpieces.lua")
 
 local minimumUsableDepth = {
   DDD_ROUTE19_REEF_PASSAGE = 130,
@@ -19,24 +20,19 @@ local minimumUsableDepth = {
   DDD_ROUTE21_ABYSS = 210,
 }
 
-local function volumeForMap(mapId)
-  for _, volume in pairs(volumes) do
-    if volume.mapId == mapId then return volume end
+local function byMap(collection, mapId)
+  for _, value in pairs(collection or {}) do
+    if value.mapId == mapId then return value end
   end
 end
 
-local function sceneForMap(mapId)
-  for _, scene in pairs(scenes) do
-    if scene.mapId == mapId then return scene end
-  end
-end
-
-local totalStructures, totalScatter, totalVents, totalSchools = 0, 0, 0, 0
+local totalStructures, totalScatter, totalVents, totalSchools, totalSetpieces = 0, 0, 0, 0, 0
 
 for _, spec in ipairs(mapSpecs) do
   local map = dofile(ROOT .. spec.file)
-  local volume = volumeForMap(map.id)
-  local scene = sceneForMap(map.id)
+  local volume = byMap(volumes, map.id)
+  local scene = byMap(scenes, map.id)
+  local setpiece = byMap(setpieces, map.id)
   check(volume ~= nil, map.id .. " volume missing")
   check(scene ~= nil, map.id .. " scene missing")
   check(scene.mapId == map.id, map.id .. " scene map id mismatch")
@@ -59,12 +55,17 @@ for _, spec in ipairs(mapSpecs) do
     check(z >= 0 and z <= worldDepth, label .. " z outside map")
   end
 
+  local function rangeInWorld(label, x0, z0, x1, z1)
+    pointInWorld(label .. " min", x0, z0)
+    pointInWorld(label .. " max", x1, z1)
+    check(x1 >= x0 and z1 >= z0, label .. " invalid range")
+  end
+
   for index, structure in ipairs(scene.structures or {}) do
     pointInWorld(map.id .. " structure " .. index, structure.x, structure.z)
   end
   for index, scatter in ipairs(scene.scatter or {}) do
-    pointInWorld(map.id .. " scatter " .. index .. " min", scatter.x0, scatter.z0)
-    pointInWorld(map.id .. " scatter " .. index .. " max", scatter.x1, scatter.z1)
+    rangeInWorld(map.id .. " scatter " .. index, scatter.x0, scatter.z0, scatter.x1, scatter.z1)
     check((scatter.count or 0) > 0, map.id .. " scatter has no instances")
   end
   for index, cluster in ipairs(scene.crystalClusters or {}) do
@@ -85,7 +86,6 @@ for _, spec in ipairs(mapSpecs) do
     check((school.depth or 0) <= volume.defaultFloorDepth, map.id .. " fish school below floor")
   end
 
-  -- District coverage must span the principal travel axis without gaps.
   local districts = scene.districts or {}
   check(#districts > 0, map.id .. " has no districts")
   local axis = districts[1].axis or "z"
@@ -101,12 +101,29 @@ for _, spec in ipairs(mapSpecs) do
   end
   check(cursor == expectedEnd, map.id .. " districts do not cover full map axis")
 
+  if setpiece then
+    for index, piece in ipairs(setpiece.pieces or {}) do
+      if piece.x and piece.z then pointInWorld(map.id .. " setpiece " .. index, piece.x, piece.z) end
+      if piece.x0 then
+        rangeInWorld(map.id .. " setpiece range " .. index, piece.x0, piece.z0, piece.x1, piece.z1)
+      end
+      if piece.kind == "cave_ceiling" then
+        check((piece.width or 0) > 0 and (piece.depth or 0) > 0, map.id .. " invalid cave ceiling")
+        check((piece.ceilingDepth or 0) < volume.minDepth,
+          map.id .. " cave ceiling must stay above minimum swim depth")
+      end
+    end
+    totalSetpieces = totalSetpieces + #(setpiece.pieces or {})
+  end
+
   totalStructures = totalStructures + #(scene.structures or {})
   totalScatter = totalScatter + #(scene.scatter or {})
   totalVents = totalVents + #(scene.bubbleVents or {})
   totalSchools = totalSchools + #(scene.fishSchools or {})
 end
 
+check(#mapSpecs == 4, "expected the complete four-map standalone migration")
+
 print(string.format(
-  "Deep Dive scenes OK: %d maps, %d structures, %d scatter groups, %d vents, %d fish schools",
-  #mapSpecs, totalStructures, totalScatter, totalVents, totalSchools))
+  "Deep Dive content OK: %d maps, %d structures, %d scatter groups, %d setpieces, %d vents, %d fish schools",
+  #mapSpecs, totalStructures, totalScatter, totalSetpieces, totalVents, totalSchools))
