@@ -32,6 +32,7 @@ jobs:
           while IFS= read -r -d '' file; do
             luac5.4 -p "$file"
           done < <(find dramatic_deep_dive -type f -name '*.lua' -print0)
+          lua5.4 dramatic_deep_dive/tools/validate_scene.lua
 
       - name: Read mod version
         id: version
