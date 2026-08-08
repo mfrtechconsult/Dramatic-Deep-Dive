@@ -28,21 +28,13 @@ local DEPTH_COLORS = {
   "#8de7ec", "#64ced9", "#3caabc", "#2a819d", "#1d607f", "#173f65",
 }
 
-local function volumeForMap(volumes, mapId)
-  for _, volume in pairs(volumes) do
-    if volume.mapId == mapId then return volume end
+local function byMap(collection, mapId)
+  for _, value in pairs(collection or {}) do
+    if value.mapId == mapId then return value end
   end
 end
 
-local function sceneForMap(scenes, mapId)
-  for _, scene in pairs(scenes) do
-    if scene.mapId == mapId then return scene end
-  end
-end
-
-local function mapFromSpec(spec)
-  return dofile(ROOT .. spec.file)
-end
+local function mapFromSpec(spec) return dofile(ROOT .. spec.file) end
 
 local function maxDepth(volume)
   local value = volume and volume.defaultFloorDepth or 1
@@ -83,16 +75,17 @@ local function circle(out, x, y, r, fill, opacity, stroke)
     x, y, r, fill or "#ffffff", opacity or 1, stroke or "none")
 end
 
-local function structureGlyph(kind)
-  local glyphs = {
+local function glyph(kind)
+  local labels = {
     rock_arch = "ARCH", ruin_gate = "GATE", abyss_gate = "ABYSS",
     broken_wall = "WALL", column_ring = "RING", shrine = "SHRINE",
-    spire = "SPIRE", wreck = "WRECK",
+    spire = "SPIRE", shipwreck = "WRECK", black_smokers = "VENTS",
+    cave_ceiling = "CEILING", stalactite_field = "STALACTITES", rib_cage = "FOSSIL",
   }
-  return glyphs[kind] or tostring(kind or "3D"):upper()
+  return labels[kind] or tostring(kind or "3D"):upper()
 end
 
-local function render(spec, map, volume, scene)
+local function render(map, volume, scene, setpiece)
   local mapW = map.width * BLOCK_PX
   local mapH = map.height * BLOCK_PX
   local width = mapW + MARGIN * 2
@@ -112,7 +105,6 @@ local function render(spec, map, volume, scene)
   end
   text(out, MARGIN, 35, dimensions, 9, "start", "#88b9c9")
 
-  -- Base map blocks.
   for by = 0, map.height - 1 do
     for bx = 0, map.width - 1 do
       local block = map.blocks[by * map.width + bx + 1] or map.borderBlock or 15
@@ -121,7 +113,6 @@ local function render(spec, map, volume, scene)
     end
   end
 
-  -- District bands are faint orientation guides.
   if scene then
     for index, district in ipairs(scene.districts or {}) do
       if (district.axis or "z") == "x" then
@@ -138,7 +129,6 @@ local function render(spec, map, volume, scene)
     end
   end
 
-  -- Depth zones, rendered from real movement-cell coordinates.
   if volume then
     local deepest = maxDepth(volume)
     for _, zone in ipairs(volume.depthZones or {}) do
@@ -152,7 +142,6 @@ local function render(spec, map, volume, scene)
         text(out, x+w/2, y+h/2+3, tostring(zone.floorDepth), 7, "middle", "#eaffff", "bold")
       end
     end
-
     for _, zone in ipairs(volume.surfaceZones or {}) do
       local x = ox + zone.left * CELL_PX
       local y = oy + zone.top * CELL_PX
@@ -162,13 +151,12 @@ local function render(spec, map, volume, scene)
     end
   end
 
-  -- 3D landmark positions from the real scene file.
   if scene then
     for _, structure in ipairs(scene.structures or {}) do
       local x = ox + structure.x / 32 * BLOCK_PX
       local y = oy + structure.z / 32 * BLOCK_PX
       circle(out, x, y, 3.2, structure.material == "darkStone" and "#a16bff" or "#ffcf74", 0.9, "#081219")
-      text(out, x+5, y+2, structureGlyph(structure.kind), 6, "start", "#f6f4dd", "bold")
+      text(out, x+5, y+2, glyph(structure.kind), 6, "start", "#f6f4dd", "bold")
     end
     for _, vent in ipairs(scene.bubbleVents or {}) do
       circle(out, ox + vent.x / 32 * BLOCK_PX, oy + vent.z / 32 * BLOCK_PX,
@@ -176,13 +164,32 @@ local function render(spec, map, volume, scene)
     end
   end
 
-  -- Border and legend.
+  if setpiece then
+    for _, piece in ipairs(setpiece.pieces or {}) do
+      if piece.x and piece.z then
+        local x = ox + piece.x / 32 * BLOCK_PX
+        local y = oy + piece.z / 32 * BLOCK_PX
+        rect(out, x-3.5, y-3.5, 7, 7, "#ff5fd2", 0.95, "#fff0fb", 0.7)
+        text(out, x+5, y+2, glyph(piece.kind), 6, "start", "#ffd9f4", "bold")
+      elseif piece.x0 then
+        local x = ox + piece.x0 / 32 * BLOCK_PX
+        local y = oy + piece.z0 / 32 * BLOCK_PX
+        local w = (piece.x1-piece.x0) / 32 * BLOCK_PX
+        local h = (piece.z1-piece.z0) / 32 * BLOCK_PX
+        rect(out, x, y, w, h, "#ff5fd2", 0.08, "#ff7adb", 0.8)
+        text(out, x+w/2, y+h/2+2, glyph(piece.kind), 6, "middle", "#ffd9f4", "bold")
+      end
+    end
+  end
+
   rect(out, ox, oy, mapW, mapH, "none", 0, "#bfeefa", 1)
   local ly = oy + mapH + 18
   line(out, MARGIN, ly-5, MARGIN+18, ly-5, "#71fff2", 2)
   text(out, MARGIN+23, ly-2, "SURFACE", 7, "start", "#a8e9e6")
   circle(out, MARGIN+91, ly-5, 3, "#ffcf74", 1, "none")
-  text(out, MARGIN+98, ly-2, "3D LANDMARK", 7, "start", "#e8d9ad")
+  text(out, MARGIN+98, ly-2, "LANDMARK", 7, "start", "#e8d9ad")
+  rect(out, MARGIN+158, ly-8, 6, 6, "#ff5fd2", 1, "none", 0)
+  text(out, MARGIN+169, ly-2, "SETPIECE", 7, "start", "#ffd9f4")
   text(out, width-MARGIN, ly-2, "numbers = floor depth", 7, "end", "#7ca5b5")
 
   out[#out + 1] = "</svg>"
@@ -193,11 +200,12 @@ mkdir(OUT)
 local specs = dofile(ROOT .. "data/maps.lua")
 local volumes = dofile(ROOT .. "data/volumes.lua")
 local scenes = dofile(ROOT .. "data/scenes.lua")
+local setpieces = dofile(ROOT .. "data/setpieces.lua")
 
 local count = 0
 for _, spec in ipairs(specs) do
   local map = mapFromSpec(spec)
-  local svg = render(spec, map, volumeForMap(volumes, map.id), sceneForMap(scenes, map.id))
+  local svg = render(map, byMap(volumes, map.id), byMap(scenes, map.id), byMap(setpieces, map.id))
   local path = OUT .. "/" .. map.id .. ".svg"
   local file = assert(io.open(path, "wb"))
   file:write(svg)
