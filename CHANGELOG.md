@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.4.0-alpha.2
+
+Depth ecology and release-hardening pass.
+
+- Added depth-dependent wild encounter ecology for every Deep Dive map while preserving Gen1Recomp's vanilla encounter RNG and battle flow.
+- Route 19 now changes from sunlit reef species to stronger channel encounters as the player descends.
+- Route 20 now has coral-shelf, open-blue and deep Seafoam-rift encounter layers.
+- Seafoam now changes between Ice Gallery and Blue Hole ecology.
+- Route 21 now has sunlit, twilight and abyssal encounter layers, with stronger species and levels in the deepest water.
+- Added validation that every legal swimming depth is covered by exactly ordered encounter bands with ten vanilla-compatible encounter slots.
+- Added a standalone travel-graph validator for DDD map ids, unique indices, map block counts, underwater arrival rectangles, SurfaceZone containment and internal Route 20/Seafoam warps.
+- Improved generated map previews with a phone-readable minimum canvas width and centered narrow maps.
+- Kept the complete 0.4.0-alpha.1 four-map migration, setpieces, multi-map depth continuity and release preview generation.
+
 ## 0.4.0-alpha.1
 
 Standalone Kanto underwater expansion milestone.
