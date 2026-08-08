@@ -18,6 +18,23 @@ function SceneGameplay.new(mod, controller, renderer)
   }, SceneGameplay)
 end
 
+function SceneGameplay:districtAt(mapId, worldX, worldZ)
+  local decor = self.renderer and self.renderer.sceneDecor
+  local scene = decor and decor:sceneForMap(mapId)
+  if not scene then return nil end
+  for _, district in ipairs(scene.districts or {}) do
+    local axis = district.axis or "z"
+    if axis == "x" then
+      if worldX >= (district.x0 or 0) and worldX < (district.x1 or math.huge) then
+        return district
+      end
+    elseif worldZ >= (district.z0 or 0) and worldZ < (district.z1 or math.huge) then
+      return district
+    end
+  end
+  return nil
+end
+
 function SceneGameplay:updateDistrict(dt)
   local controller = self.controller
   local state = controller and controller.state
@@ -29,7 +46,9 @@ function SceneGameplay:updateDistrict(dt)
     return
   end
 
-  local district = self.renderer:districtAt(map.id, player.py or player.cellY * 16)
+  local worldX = player.px or player.cellX * 16
+  local worldZ = player.py or player.cellY * 16
+  local district = self:districtAt(map.id, worldX, worldZ)
   if district and district.id ~= self.districtId then
     self.districtId = district.id
     self.districtName = district.name or district.id
@@ -60,10 +79,6 @@ end
 function SceneGameplay:install()
   local gameplay = self
 
-  -- DeepDive's own movement wrapper opens the authored SwimVolume. This
-  -- higher-priority wrapper runs around it and puts physical mass back into
-  -- large 3D landmarks. A player may still swim over a short ruin because the
-  -- collider also checks current world height/depth.
   self.mod.hooks:wrap("movement.collision", function(next, allowed, ctx)
     local result = next(allowed, ctx)
     local controller = gameplay.controller
@@ -72,8 +87,7 @@ function SceneGameplay:install()
     if not (state and state.active and ow and ow.player and ctx
         and ctx.mover == ow.player and ow.map) then return result end
 
-    if gameplay.renderer:blocksCell(
-        ow.map.id, ctx.toX, ctx.toY, state.depth) then
+    if gameplay.renderer:blocksCell(ow.map.id, ctx.toX, ctx.toY, state.depth) then
       ctx.reason = "deep_dive_landmark"
       return false
     end
