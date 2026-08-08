@@ -80,8 +80,10 @@ end
 function Salvage:collect(node)
   if not (node and Game.save and Game.data) then return false end
   if not (Game.data.items and Game.data.items[node.item]) then
-    if self.mod.log then self.mod.log:error("salvage %s references unknown item %s",
-      tostring(node.id), tostring(node.item)) end
+    if self.mod.log then
+      self.mod.log:error("salvage %s references unknown item %s",
+        tostring(node.id), tostring(node.item))
+    end
     return false
   end
 
@@ -140,8 +142,10 @@ function Salvage:drawHint()
 
   love.graphics.push("all")
   love.graphics.setColor(0, 0, 0, 1)
-  Font.drawBox(1, 10, 18, 4)
-  Font.draw(message, math.floor((160 - Font.width(message)) / 2), 88)
+  -- Dedicated middle strip: depth HUD occupies the top, district discovery
+  -- sits lower, and SURFACE hints live at the bottom of the 144px viewport.
+  Font.drawBox(1, 6, 18, 4)
+  Font.draw(message, math.floor((160 - Font.width(message)) / 2), 56)
   love.graphics.pop()
 end
 
