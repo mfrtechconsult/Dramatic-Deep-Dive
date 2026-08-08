@@ -1,7 +1,7 @@
 {
   "id": "DRAMATIC_DEEP_DIVE",
   "name": "Dramatic Deep Dive",
-  "version": "0.4.0-alpha.1",
+  "version": "0.4.0-alpha.2",
   "api": 2,
   "entry": "main.lua",
   "profile": "content",
@@ -23,6 +23,6 @@
     "filesystem"
   ],
   "affects_link": false,
-  "description": "Standalone 3D underwater Kanto for Gen1Recomp: HM06 DIVE, four authored maps, continuous depth, Pokemon mounts, living Voxel reefs, ruins, caves, shipwrecks and abyss exploration.",
+  "description": "Standalone 3D underwater Kanto for Gen1Recomp: HM06 DIVE, four authored maps, continuous depth, depth ecology, Pokemon mounts, living Voxel reefs, ruins, caves, shipwrecks and abyss exploration.",
   "github": "mfrtechconsult/Dramatic-Deep-Dive"
 }
