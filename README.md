@@ -6,7 +6,7 @@ Kanto Dive is now only source material for the historical map layouts. It is **n
 
 ## Current version
 
-`0.4.0-alpha.1` — complete four-map standalone migration and setpiece pass.
+`0.4.0-alpha.2` — complete four-map standalone migration, setpieces and depth ecology.
 
 ## Standalone underwater Kanto
 
@@ -64,6 +64,19 @@ The environment is generated as real depth-tested Voxel geometry rather than scr
 
 Large structures have vertical collision. A ruin can block you at its own height while remaining passable if you swim over it.
 
+## Depth ecology
+
+Wild Pokemon are no longer selected only from the map id. Deep Dive replaces the encounter table at the moment Gen1Recomp performs its normal encounter roll, based on the player's **actual continuous depth**. Gen1Recomp still owns the RNG and battle start logic.
+
+Examples:
+
+- Route 19 changes from a Horsea/Krabby/Staryu reef population to stronger Seadra/Tentacruel/Gyarados encounters in the channel;
+- Route 20 has separate **coral shelf**, **open blue** and **Seafoam rift** ecologies;
+- Seafoam changes from Seel/Shellder/Slowpoke in the upper gallery to Dewgong/Cloyster and stronger Pokemon in the Blue Hole;
+- Route 21 has **sunlit**, **twilight** and **abyssal** water layers. The deepest layer has a lower encounter rate but stronger Pokemon.
+
+This makes vertical exploration mechanically meaningful rather than purely visual.
+
 ## Depth ranges
 
 | Map | Approx. usable range | Identity |
@@ -89,7 +102,7 @@ Normal followers are explicitly removed from overworld entity/NPC lists for the 
 
 ## Map previews
 
-Every release now generates **real-data map previews** from the actual Lua map, depth-volume, scene and setpiece definitions. These are not concept art.
+Every release generates **real-data map previews** from the actual Lua map, depth-volume, scene and setpiece definitions. These are not concept art.
 
 The release assets include:
 
@@ -98,7 +111,7 @@ The release assets include:
 - `DDD_SEAFOAM_SUNKEN_CAVE.png`
 - `DDD_ROUTE21_ABYSS.png`
 
-The previews display the actual base-map blocks, depth zones, SURFACE regions, 3D landmarks, named districts and major setpieces.
+The previews display the actual base-map blocks, depth zones, SURFACE regions, 3D landmarks, named districts and major setpieces. Narrow maps are centered on a phone-readable canvas rather than exported as tiny strips.
 
 ## Dependencies
 
@@ -127,11 +140,15 @@ The release workflow rejects a build if:
 - `manifest.json` is invalid;
 - any Lua source fails syntax validation;
 - one of the four maps is missing its depth volume or scene;
+- map ids/indices or block counts are inconsistent;
 - a SwimVolume exceeds map boundaries;
 - a map loses its intended minimum depth;
 - districts leave gaps in their main exploration axis;
 - landmarks, scatter regions, vents, fish schools, light shafts or setpieces exceed map boundaries;
-- the Seafoam ceiling enters the legal swimming ceiling.
+- the Seafoam ceiling enters the legal swimming ceiling;
+- an underwater DIVE arrival is outside its authored SurfaceZone;
+- an internal underwater warp leaves the DDD map graph;
+- an encounter ecology leaves a legal depth uncovered or does not preserve the ten vanilla slots.
 
 The same workflow generates the four map previews and attaches their PNGs to the GitHub release.
 
@@ -139,4 +156,4 @@ The same workflow generates the four map previews and attaches their PNGs to the
 
 The old flat DIVE implementation is no longer the target. Dramatic Deep Dive is being developed as the underwater counterpart to Dramatic Sky Ride: continuous free movement, meaningful vertical traversal, mount/rider presentation and authored 3D spaces.
 
-The next stages focus on transitions, depth-dependent encounters/interactions, map-specific secrets and performance/LOD before final gameplay tuning on real hardware.
+The next stages focus on a more dramatic DIVE/SURFACE transition, map-specific secrets/interactions and performance/LOD before final gameplay tuning on real hardware.
