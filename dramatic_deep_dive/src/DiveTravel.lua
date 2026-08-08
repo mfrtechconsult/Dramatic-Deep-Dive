@@ -8,6 +8,11 @@ local function containsRect(point, rect)
     and point.y >= rect.y and point.y < rect.y + rect.height
 end
 
+local function listContains(list, value)
+  for _, item in ipairs(list or {}) do if item == value then return true end end
+  return false
+end
+
 local function monKnows(mon, moveId)
   for _, move in ipairs(mon and mon.moves or {}) do
     local id = type(move) == "table" and move.id or move
@@ -23,17 +28,13 @@ local function removeLabel(items, label)
 end
 
 local function alreadyHas(items, label)
-  for _, item in ipairs(items or {}) do
-    if item.label == label then return true end
-  end
+  for _, item in ipairs(items or {}) do if item.label == label then return true end end
   return false
 end
 
 local function insertBeforeStats(items, item)
   local index = #items + 1
-  for i, existing in ipairs(items) do
-    if existing.label == "STATS" then index = i break end
-  end
+  for i, existing in ipairs(items) do if existing.label == "STATS" then index = i break end end
   table.insert(items, index, item)
 end
 
@@ -41,13 +42,8 @@ function DiveTravel.new(mod, definitions)
   return setmetatable({ mod = mod, zones = definitions or {} }, DiveTravel)
 end
 
-function DiveTravel:getSession()
-  return self.mod.save:get(SESSION_KEY)
-end
-
-function DiveTravel:setSession(value)
-  self.mod.save:set(SESSION_KEY, value)
-end
+function DiveTravel:getSession() return self.mod.save:get(SESSION_KEY) end
+function DiveTravel:setSession(value) self.mod.save:set(SESSION_KEY, value) end
 
 function DiveTravel:current(game)
   local ow = game and game.overworld
@@ -70,7 +66,9 @@ end
 
 function DiveTravel:zoneForUnderwaterMap(mapId)
   for id, zone in pairs(self.zones) do
-    if zone.underwaterMapId == mapId then return zone, id end
+    if zone.underwaterMapId == mapId or listContains(zone.submergedMaps, mapId) then
+      return zone, id
+    end
   end
   return nil
 end
@@ -80,8 +78,7 @@ function DiveTravel:diveTarget(position)
   for zoneId, zone in pairs(self.zones) do
     for _, link in ipairs(zone.links or {}) do
       if position.mapId == link.surface.mapId and containsRect(position, {
-        x = link.surface.x, y = link.surface.y,
-        width = link.width, height = link.height,
+        x = link.surface.x, y = link.surface.y, width = link.width, height = link.height,
       }) then
         return {
           mapId = link.underwater.mapId,
@@ -102,8 +99,7 @@ function DiveTravel:surfaceTarget(position)
   for zoneId, zone in pairs(self.zones) do
     for _, link in ipairs(zone.links or {}) do
       if position.mapId == link.underwater.mapId and containsRect(position, {
-        x = link.underwater.x, y = link.underwater.y,
-        width = link.width, height = link.height,
+        x = link.underwater.x, y = link.underwater.y, width = link.width, height = link.height,
       }) then
         return {
           mapId = link.surface.mapId,
@@ -125,8 +121,7 @@ function DiveTravel:surfaceTargetIsWater(game, target)
   if not (okMap and Map and type(Map.defIsWaterCell) == "function") then return true end
   local def = game.data.maps and game.data.maps[target.mapId]
   local tileset = def and game.data.tilesets and game.data.tilesets[def.tileset]
-  return def ~= nil and tileset ~= nil
-    and Map.defIsWaterCell(def, tileset, target.x, target.y) == true
+  return def ~= nil and tileset ~= nil and Map.defIsWaterCell(def, tileset, target.x, target.y) == true
 end
 
 function DiveTravel:setSurfing(game, enabled, surfMusic)
@@ -138,9 +133,7 @@ function DiveTravel:setSurfing(game, enabled, surfMusic)
     if save.player then save.player.surfing = enabled and true or false end
   end
   if ow and ow.player then ow.player.surfing = enabled and true or false end
-  if ow and type(ow.syncSurfingPikachu) == "function" then
-    pcall(ow.syncSurfingPikachu, ow)
-  end
+  if ow and type(ow.syncSurfingPikachu) == "function" then pcall(ow.syncSurfingPikachu, ow) end
   local okMusic, Music = pcall(require, "src.core.Music")
   if okMusic and Music and game and game.data and ow and ow.map then
     pcall(Music.playMap, game.data, ow.map.id, false, surfMusic and true or false)
@@ -149,8 +142,7 @@ end
 
 function DiveTravel:displayName(game, mon)
   if mon and mon.nickname and mon.nickname ~= "" then return mon.nickname end
-  local species = mon and game and game.data and game.data.pokemon
-    and game.data.pokemon[mon.species]
+  local species = mon and game and game.data and game.data.pokemon and game.data.pokemon[mon.species]
   return species and species.name or "POKEMON"
 end
 
@@ -178,8 +170,7 @@ function DiveTravel:beginDive(mon, game, zone, zoneId, position, target)
       target.facing or position.facing, { onDone = function()
         self:setSurfing(game, true, false)
         self.mod.events:emit("mod.dramatic_deep_dive.entered", {
-          zoneId = zoneId, linkId = target.linkId,
-          mapId = target.mapId, x = target.x, y = target.y,
+          zoneId = zoneId, linkId = target.linkId, mapId = target.mapId, x = target.x, y = target.y,
         })
       end })
     if not ok then
@@ -198,8 +189,7 @@ function DiveTravel:beginSurface(mon, game, zone, zoneId, position, target)
         self:setSession(nil)
         self:setSurfing(game, true, true)
         self.mod.events:emit("mod.dramatic_deep_dive.surfaced", {
-          zoneId = zoneId, linkId = target.linkId,
-          mapId = target.mapId, x = target.x, y = target.y,
+          zoneId = zoneId, linkId = target.linkId, mapId = target.mapId, x = target.x, y = target.y,
         })
       end })
     if not ok then self.mod.log:error("SURFACE warp failed: %s", tostring(err)) end
@@ -219,8 +209,7 @@ function DiveTravel:install()
 
     if underwater then
       local target, zone, zoneId = service:surfaceTarget(position)
-      if target and service:surfaceTargetIsWater(game, target)
-          and not alreadyHas(out, "SURFACE") then
+      if target and service:surfaceTargetIsWater(game, target) and not alreadyHas(out, "SURFACE") then
         insertBeforeStats(out, {
           label = "SURFACE",
           onSelect = function(selected, activeGame)
@@ -232,8 +221,7 @@ function DiveTravel:install()
     end
 
     local target, zone, zoneId = service:diveTarget(position)
-    if target and zone and position.surfing
-        and service:hasBadge(game, zone.requiredBadge)
+    if target and zone and position.surfing and service:hasBadge(game, zone.requiredBadge)
         and not alreadyHas(out, "DIVE") then
       insertBeforeStats(out, {
         label = "DIVE",
@@ -247,9 +235,7 @@ function DiveTravel:install()
 
   self.mod.hooks:wrap("fieldmove.eligibility", function(next, moveId, ctx)
     local position = service:current(require("src.core.Game"))
-    if moveId == "SURF" and position and service:zoneForUnderwaterMap(position.mapId) then
-      return nil
-    end
+    if moveId == "SURF" and position and service:zoneForUnderwaterMap(position.mapId) then return nil end
     return next(moveId, ctx)
   end)
 
@@ -262,10 +248,12 @@ function DiveTravel:install()
       local state = service:getSession()
       if not (state and state.active) then
         service:setSession({ active = true, zoneId = zoneId, orphaned = true })
+      else
+        state.zoneId = zoneId
+        state.mapId = event.mapId
+        service:setSession(state)
       end
-      service.mod.events:emit("mod.dramatic_deep_dive.entered", {
-        zoneId = zoneId, mapId = event.mapId,
-      })
+      service.mod.events:emit("mod.dramatic_deep_dive.entered", { zoneId = zoneId, mapId = event.mapId })
       return
     end
     local state = service:getSession()
