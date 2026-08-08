@@ -33,6 +33,7 @@ return function(mod)
   local SubmergedTransitionGuard = loadModule(mod, "src/SubmergedTransitionGuard.lua")
   local DiveTransition = loadModule(mod, "src/DiveTransition.lua")
   local DepthEncounters = loadModule(mod, "src/DepthEncounters.lua")
+  local Salvage = loadModule(mod, "src/Salvage.lua")
   local AmbientLOD = loadModule(mod, "src/AmbientLOD.lua")
   local VoxelRenderer = loadModule(mod, "src/VoxelRenderer.lua")
   local volumeDefinitions = loadModule(mod, "data/volumes.lua")
@@ -40,12 +41,13 @@ return function(mod)
   local sceneDefinitions = loadModule(mod, "data/scenes.lua")
   local setpieceDefinitions = loadModule(mod, "data/setpieces.lua")
   local depthEncounterDefinitions = loadModule(mod, "data/depth_encounters.lua")
+  local salvageDefinitions = loadModule(mod, "data/salvage.lua")
   if not (Content and VolumeRegistry and FollowerSprites and FollowerBridge and DiveTravel
       and Progression and DeepDive and SceneDecor and SetpieceDecor and SceneGameplay
       and UnderwaterLighting and SubmergedTransitionGuard and DiveTransition
-      and DepthEncounters and AmbientLOD and VoxelRenderer and volumeDefinitions
+      and DepthEncounters and Salvage and AmbientLOD and VoxelRenderer and volumeDefinitions
       and diveDefinitions and sceneDefinitions and setpieceDefinitions
-      and depthEncounterDefinitions) then
+      and depthEncounterDefinitions and salvageDefinitions) then
     return
   end
   if not Content.register(mod) then return end
@@ -71,6 +73,7 @@ return function(mod)
   local transitionGuard = SubmergedTransitionGuard.new(mod, controller, registry)
   local diveTransition = DiveTransition.new(mod, controller, registry)
   local depthEncounters = DepthEncounters.new(mod, controller, depthEncounterDefinitions)
+  local salvage = Salvage.new(mod, controller, salvageDefinitions)
   local ambientLOD = AmbientLOD.new(mod, sceneDecor)
   travel:setTransition(diveTransition)
   voxelRenderer:setController(controller)
@@ -84,6 +87,7 @@ return function(mod)
   sceneGameplay:install()
   depthEncounters:install()
   ambientLOD:install()
+  salvage:install()
   diveTransition:install()
 
   mod.exports.isActive = function() return controller:isActive() end
@@ -104,6 +108,7 @@ return function(mod)
   end
   mod.exports.ambientLODStats = function() return ambientLOD:stats() end
   mod.exports.isTransitioning = function() return diveTransition:isActive() end
+  mod.exports.salvageRemaining = function(mapId) return salvage:remaining(mapId) end
   mod.exports.registerVolume = function(id, definition, owner)
     return registry:register(id, definition, owner or "external")
   end
