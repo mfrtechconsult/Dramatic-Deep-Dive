@@ -26,11 +26,15 @@ return function(mod)
   local DiveTravel = loadModule(mod, "src/DiveTravel.lua")
   local Progression = loadModule(mod, "src/Progression.lua")
   local DeepDive = loadModule(mod, "src/DeepDive.lua")
+  local SceneDecor = loadModule(mod, "src/SceneDecor.lua")
+  local SceneGameplay = loadModule(mod, "src/SceneGameplay.lua")
   local VoxelRenderer = loadModule(mod, "src/VoxelRenderer.lua")
   local volumeDefinitions = loadModule(mod, "data/volumes.lua")
   local diveDefinitions = loadModule(mod, "data/dive_links.lua")
+  local sceneDefinitions = loadModule(mod, "data/scenes.lua")
   if not (Content and VolumeRegistry and FollowerSprites and FollowerBridge and DiveTravel
-      and Progression and DeepDive and VoxelRenderer and volumeDefinitions and diveDefinitions) then
+      and Progression and DeepDive and SceneDecor and SceneGameplay and VoxelRenderer
+      and volumeDefinitions and diveDefinitions and sceneDefinitions) then
     return
   end
   if not Content.register(mod) then return end
@@ -47,14 +51,17 @@ return function(mod)
   local sprites = FollowerSprites.new(mod)
   local followerBridge = FollowerBridge.new(mod)
   local travel = DiveTravel.new(mod, diveDefinitions)
-  local voxelRenderer = VoxelRenderer.new(mod, registry)
+  local sceneDecor = SceneDecor.new(mod, registry, sceneDefinitions)
+  local voxelRenderer = VoxelRenderer.new(mod, registry, sceneDecor)
   local controller = DeepDive.new(mod, registry, sprites, voxelRenderer, followerBridge, travel)
+  local sceneGameplay = SceneGameplay.new(mod, controller, voxelRenderer)
   voxelRenderer:setController(controller)
 
   travel:install()
   Progression.install(mod)
   controller:install()
   voxelRenderer:install()
+  sceneGameplay:install()
 
   mod.exports.isActive = function() return controller:isActive() end
   mod.exports.isUnderwater = function() return controller:isActive() end
@@ -65,6 +72,9 @@ return function(mod)
   mod.exports.canSwimAt = function(mapId, x, y) return registry:contains(mapId, x, y) end
   mod.exports.canDiveHere = function(game) return travel:canDiveHere(game) end
   mod.exports.canSurfaceHere = function(game) return travel:canSurfaceHere(game) end
+  mod.exports.currentDistrict = function()
+    return sceneGameplay.districtId, sceneGameplay.districtName
+  end
   mod.exports.registerVolume = function(id, definition, owner)
     return registry:register(id, definition, owner or "external")
   end
