@@ -1,55 +1,70 @@
 # Dramatic Deep Dive
 
-**Dramatic Deep Dive** is now a standalone Gen1Recomp underwater traversal mod. It is no longer an addon for Kanto Dive: it owns HM06 DIVE, DIVE/SURFACE travel, underwater maps and the free-swimming runtime itself.
+**Dramatic Deep Dive** is a standalone Gen1Recomp underwater traversal mod. It owns HM06 DIVE, DIVE/SURFACE travel, underwater maps, continuous-depth swimming and the 3D underwater environment itself.
 
-Kanto Dive is still being used as a development reference for the first underwater map layouts, but it is **not required at runtime** and is marked as conflicting to avoid duplicate HM/map systems.
+Kanto Dive is still used as a development reference for the earliest map layouts, but it is **not required at runtime** and conflicts with Dramatic Deep Dive to avoid duplicate HM/map systems.
 
 ## Current version
 
-`0.2.0-alpha.1` — standalone Route 21 abyss prototype.
+`0.3.0-alpha.1` — living Route 21 environment pass.
 
-## What changed from alpha.1
+## Route 21 is now a real 3D underwater space
 
-- removed the hard dependency on Kanto Dive;
-- added Deep Dive-owned HM06 DIVE and compatibility data;
-- added Deep Dive-owned DIVE/SURFACE travel service;
-- imported the Route 21 trench layout into the standalone map `DDD_ROUTE21_ABYSS`;
-- vendored the underwater tileset under a Deep Dive-owned asset path;
-- expanded the Route 21 underwater column to more than 200 world pixels of usable depth;
-- added a central abyss with shallow shelves, drops and side walls;
-- added three independent DIVE/SURFACE windows under Route 21 south of Pallet Town;
-- followers are fully suspended while underwater rather than remaining visible beside the mount;
-- rider is hidden automatically in 1ST camera mode;
-- 1ST and 3RD free cameras are both supported underwater;
-- added smooth B-button swim boost through Battle Art Voxel Fork's existing FreeMove path;
-- increased vertical-control speed for the much larger depth range.
+`DDD_ROUTE21_ABYSS` remains the 20 × 90 movement-cell map below Route 21 south of Pallet Town, but it is no longer just a deep floor with a few shelves.
+
+The map now contains five visually distinct exploration districts:
+
+- **PALLET REEF** — bright shallow reef, dense branching coral and a large natural rock arch;
+- **KELP CATHEDRAL** — tall voxel kelp fields and rock spires that create narrow swimming corridors;
+- **SUNKEN COURT** — broken walls, ancient gates, a column ring, submerged shrine and crystal growths;
+- **ABYSSAL GATE** — the darkest and deepest part of the map, framed by a giant ruined gateway and tall rock spires;
+- **SOUTHERN GARDENS** — a second coral/kelp ecosystem with ruins near the southern exits.
+
+The environment is generated as real depth-tested Voxel geometry, not screen-space decoration. Buildings and terrain occlude correctly, fish move through world space, bubbles rise through the water column, and large ruins have height-aware collision: you can swim over a low structure instead of hitting an invisible 2D wall forever.
+
+## Living underwater effects
+
+- deterministic procedural coral gardens with several coral materials;
+- tall segmented kelp forests;
+- stepped rock spires and natural arches;
+- ancient stone gates, broken walls, columns and shrine structures;
+- crystal fields and hand-authored crystal clusters;
+- animated bubble vents;
+- animated 3D fish schools;
+- translucent shafts of light from the surface;
+- depth-aware underwater lighting that becomes darker and bluer as the player descends;
+- area-discovery banners when crossing between the five underwater districts.
+
+## Depth model
+
+Route 21 still uses the large vertical range introduced by the standalone rewrite:
+
+- water surface Y: `256`;
+- minimum depth: `24`;
+- deepest seafloor: `228`;
+- deepest normal swimming depth: `222` after seabed clearance;
+- north shelf: floor depth `96`;
+- north drop: `140`;
+- central side walls: `168`;
+- central abyss: `228`;
+- south rise: `160`;
+- south shelf: `108`.
+
+The same map therefore supports shallow reef exploration, mid-water ruins and a genuinely deep central canyon without changing maps.
 
 ## Controls
 
-- movement: normal free-move controls in 1ST/3RD;
+- movement: Battle Art Voxel Fork free movement in 1ST/3RD;
 - `R2` / `Page Up`: ascend;
 - `L2` / `Page Down`: dive deeper;
 - hold `B`: smooth swim boost;
 - `SURFACE`: available from the party submenu when inside an authored surface window.
 
-## Route 21 abyss
+## Mount and followers
 
-The first full-size Deep Dive area sits below Route 21, immediately south of Pallet Town. It uses the same 20 × 90 movement-cell footprint as Route 21.
+The first party Pokémon that knows DIVE is used as the underwater mount through PokePC follower art. The trainer is rendered separately in third person and hidden automatically in first person.
 
-The water column is no longer a shallow fake altitude layer:
-
-- water surface Y: `256`;
-- minimum depth: `24`;
-- deepest seafloor: `228`;
-- usable deepest swimming depth: `222` after seabed clearance;
-- north shelf: floor depth `96`;
-- north drop: `140`;
-- central side walls: `168`;
-- central trench: `228`;
-- south rise: `160`;
-- south shelf: `108`.
-
-This produces a real canyon profile: the player can descend from shelf water into a substantially deeper central abyss and climb back out without changing maps.
+Normal followers are explicitly removed from the overworld entity/NPC lists for the whole submerged session, so the active follower does not appear swimming beside the DIVE mount.
 
 ## Dependencies
 
@@ -57,7 +72,7 @@ This produces a real canyon profile: the player can descend from shelf water int
 - Battle Art Voxel Fork `>=1.7.6 <2.0.0`;
 - PokePC Followers Voxel Merge.
 
-Dramatic Sky Ride remains optional. Kanto Dive must not be installed at the same time because Deep Dive now replaces its HM06/travel responsibilities.
+Dramatic Sky Ride remains optional. Kanto Dive must not be installed at the same time because Dramatic Deep Dive now replaces its HM06/travel responsibilities.
 
 ## Installation
 
@@ -69,10 +84,20 @@ GitHub releases include a ready-to-install ZIP whose root is `dramatic_deep_dive
 
 ## Progression
 
-HM06 is owned by this mod. The Cinnabar Lab scientist progression used by the earlier Kanto Dive prototype is retained for now: after the Volcano Badge, he gives HM06 DIVE without replacing the vanilla TM35 interaction.
+HM06 is owned by this mod. The Cinnabar Lab scientist progression is retained for now: after the Volcano Badge, he gives HM06 DIVE without replacing the vanilla TM35 interaction.
+
+## Validation
+
+The release workflow now rejects a build if:
+
+- `manifest.json` is invalid;
+- any Lua source fails `luac` syntax validation;
+- Route 21's 3D districts fail to cover the whole map;
+- scene landmarks, scatter regions, bubble vents, light shafts or fish schools lie outside the map;
+- the central abyss accidentally loses its intended deep-water range.
 
 ## Project direction
 
-Dramatic Deep Dive is intended to become the normal DIVE implementation for this mod ecosystem. Future underwater maps will be authored directly for its continuous-depth model rather than treating 3D swimming as a presentation layer over a separate 2D DIVE mod.
+Dramatic Deep Dive is intended to become the normal DIVE implementation for this mod ecosystem. Future underwater maps will be authored directly for its continuous-depth and 3D-scene model.
 
-Kanto Dive remains useful as source material while its existing Route 19/20/21 and Seafoam maps are migrated, but those maps will progressively receive `DDD_*` ids and native `SwimVolume`/`DepthZone` data.
+Kanto Dive remains useful as source material while Route 19, Route 20 and Seafoam are migrated, but those maps will progressively receive `DDD_*` ids, native `SwimVolume`/`DepthZone` data and their own 3D environments rather than being copied as flat underwater floors.
