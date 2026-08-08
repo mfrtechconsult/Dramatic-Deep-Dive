@@ -19,10 +19,10 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Install Lua validator
+      - name: Install validators and preview renderer
         run: |
           sudo apt-get update
-          sudo apt-get install -y lua5.4
+          sudo apt-get install -y lua5.4 librsvg2-bin
 
       - name: Validate mod sources
         shell: bash
@@ -33,6 +33,17 @@ jobs:
             luac5.4 -p "$file"
           done < <(find dramatic_deep_dive -type f -name '*.lua' -print0)
           lua5.4 dramatic_deep_dive/tools/validate_scene.lua
+
+      - name: Generate real-data map previews
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p previews
+          lua5.4 dramatic_deep_dive/tools/render_previews.lua previews
+          for svg in previews/*.svg; do
+            png="${svg%.svg}.png"
+            rsvg-convert -s 2 "$svg" -o "$png"
+          done
 
       - name: Read mod version
         id: version
@@ -61,7 +72,9 @@ jobs:
             echo "Release $TAG already exists; nothing to do."
             exit 0
           fi
-          gh release create "$TAG" "$ZIP#Dramatic Deep Dive ${VERSION} (installable ZIP)" \
+          gh release create "$TAG" \
+            "$ZIP#Dramatic Deep Dive ${VERSION} (installable ZIP)" \
+            previews/*.png \
             --target "$GITHUB_SHA" \
             --title "Dramatic Deep Dive ${VERSION}" \
             --prerelease \
