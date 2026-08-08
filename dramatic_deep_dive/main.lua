@@ -30,6 +30,7 @@ return function(mod)
   local SetpieceDecor = loadModule(mod, "src/SetpieceDecor.lua")
   local SceneGameplay = loadModule(mod, "src/SceneGameplay.lua")
   local UnderwaterLighting = loadModule(mod, "src/UnderwaterLighting.lua")
+  local SubmergedTransitionGuard = loadModule(mod, "src/SubmergedTransitionGuard.lua")
   local VoxelRenderer = loadModule(mod, "src/VoxelRenderer.lua")
   local volumeDefinitions = loadModule(mod, "data/volumes.lua")
   local diveDefinitions = loadModule(mod, "data/dive_links.lua")
@@ -37,8 +38,8 @@ return function(mod)
   local setpieceDefinitions = loadModule(mod, "data/setpieces.lua")
   if not (Content and VolumeRegistry and FollowerSprites and FollowerBridge and DiveTravel
       and Progression and DeepDive and SceneDecor and SetpieceDecor and SceneGameplay
-      and UnderwaterLighting and VoxelRenderer and volumeDefinitions and diveDefinitions
-      and sceneDefinitions and setpieceDefinitions) then
+      and UnderwaterLighting and SubmergedTransitionGuard and VoxelRenderer
+      and volumeDefinitions and diveDefinitions and sceneDefinitions and setpieceDefinitions) then
     return
   end
   if not Content.register(mod) then return end
@@ -61,9 +62,13 @@ return function(mod)
   local controller = DeepDive.new(mod, registry, sprites, voxelRenderer, followerBridge, travel)
   local sceneGameplay = SceneGameplay.new(mod, controller, voxelRenderer)
   local underwaterLighting = UnderwaterLighting.new(mod, controller)
+  local transitionGuard = SubmergedTransitionGuard.new(mod, controller, registry)
   voxelRenderer:setController(controller)
 
+  -- Travel emits the entered event. The guard registers high/low priority
+  -- listeners around the controller's normal priority-0 activation handler.
   travel:install()
+  transitionGuard:install()
   Progression.install(mod)
   controller:install()
   voxelRenderer:install()
