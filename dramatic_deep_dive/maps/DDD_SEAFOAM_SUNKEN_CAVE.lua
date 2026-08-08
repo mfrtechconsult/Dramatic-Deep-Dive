@@ -1,0 +1,26 @@
+return {
+  id = "DDD_SEAFOAM_SUNKEN_CAVE",
+  label = "DramaticDeepDiveSeafoamSunkenCave",
+  index = 1202,
+  tileset = "DDD_UNDERWATER",
+  width = 10,
+  height = 8,
+  borderBlock = 2,
+  outdoor = false,
+  region = "DRAMATIC_DEEP_DIVE",
+  blocks = {
+    6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+    6, 7, 5, 5, 5, 5, 5, 5, 5, 6,
+    6, 5, 5, 8, 5, 10, 5, 14, 5, 6,
+    6, 5, 10, 8, 5, 10, 5, 14, 5, 6,
+    6, 5, 5, 5, 5, 5, 5, 5, 5, 6,
+    6, 14, 5, 10, 5, 8, 8, 5, 14, 6,
+    6, 5, 5, 5, 5, 5, 5, 5, 5, 6,
+    6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+  },
+  warps = {
+    { x = 2, y = 2, destMap = "DDD_ROUTE20_SEAFLOOR", destWarp = 1 },
+  },
+  objects = {},
+  signs = {},
+}
