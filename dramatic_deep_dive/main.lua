@@ -31,15 +31,18 @@ return function(mod)
   local SceneGameplay = loadModule(mod, "src/SceneGameplay.lua")
   local UnderwaterLighting = loadModule(mod, "src/UnderwaterLighting.lua")
   local SubmergedTransitionGuard = loadModule(mod, "src/SubmergedTransitionGuard.lua")
+  local DepthEncounters = loadModule(mod, "src/DepthEncounters.lua")
   local VoxelRenderer = loadModule(mod, "src/VoxelRenderer.lua")
   local volumeDefinitions = loadModule(mod, "data/volumes.lua")
   local diveDefinitions = loadModule(mod, "data/dive_links.lua")
   local sceneDefinitions = loadModule(mod, "data/scenes.lua")
   local setpieceDefinitions = loadModule(mod, "data/setpieces.lua")
+  local depthEncounterDefinitions = loadModule(mod, "data/depth_encounters.lua")
   if not (Content and VolumeRegistry and FollowerSprites and FollowerBridge and DiveTravel
       and Progression and DeepDive and SceneDecor and SetpieceDecor and SceneGameplay
-      and UnderwaterLighting and SubmergedTransitionGuard and VoxelRenderer
-      and volumeDefinitions and diveDefinitions and sceneDefinitions and setpieceDefinitions) then
+      and UnderwaterLighting and SubmergedTransitionGuard and DepthEncounters and VoxelRenderer
+      and volumeDefinitions and diveDefinitions and sceneDefinitions and setpieceDefinitions
+      and depthEncounterDefinitions) then
     return
   end
   if not Content.register(mod) then return end
@@ -63,10 +66,9 @@ return function(mod)
   local sceneGameplay = SceneGameplay.new(mod, controller, voxelRenderer)
   local underwaterLighting = UnderwaterLighting.new(mod, controller)
   local transitionGuard = SubmergedTransitionGuard.new(mod, controller, registry)
+  local depthEncounters = DepthEncounters.new(mod, controller, depthEncounterDefinitions)
   voxelRenderer:setController(controller)
 
-  -- Travel emits the entered event. The guard registers high/low priority
-  -- listeners around the controller's normal priority-0 activation handler.
   travel:install()
   transitionGuard:install()
   Progression.install(mod)
@@ -74,6 +76,7 @@ return function(mod)
   voxelRenderer:install()
   underwaterLighting:install()
   sceneGameplay:install()
+  depthEncounters:install()
 
   mod.exports.isActive = function() return controller:isActive() end
   mod.exports.isUnderwater = function() return controller:isActive() end
@@ -86,6 +89,10 @@ return function(mod)
   mod.exports.canSurfaceHere = function(game) return travel:canSurfaceHere(game) end
   mod.exports.currentDistrict = function()
     return sceneGameplay.districtId, sceneGameplay.districtName
+  end
+  mod.exports.currentEncounterBand = function()
+    local band, mapId = depthEncounters:currentBand()
+    return band and band.id or nil, mapId
   end
   mod.exports.registerVolume = function(id, definition, owner)
     return registry:register(id, definition, owner or "external")
