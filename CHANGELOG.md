@@ -1,18 +1,33 @@
 # Changelog
 
+## 0.4.0-alpha.3
+
+Exploration, transitions and performance pass.
+
+- Added staged DIVE/SURFACE transitions instead of exposing an immediate raw map warp.
+- DIVE now fades through the water boundary, enters near the surface and automatically descends the mount toward the map's authored default depth.
+- SURFACE now physically raises the mount to the top of the water column before performing the return warp.
+- Movement input is temporarily locked only during the transition; internal underwater Route 20/Seafoam warps never trigger the effect.
+- Added a lightweight procedural bubble overlay during water-boundary transitions without external art assets.
+- Added dynamic ambience LOD: distant animated fish schools and bubble vents are culled around the active Voxel camera while all static reefs/ruins remain rendered normally.
+- Added nine persistent depth-gated salvage caches across Route 19, Route 20, Seafoam and Route 21.
+- Salvage uses Gen1Recomp's native `Bag.add`, preserves the cache when the bag is full and saves collected cache ids in mod save data.
+- Nearby salvage gives `SIGNAL ABOVE`, `SIGNAL BELOW` or `A  SALVAGE`, making continuous depth part of exploration.
+- Added rewards around the Route 20 wreck/rift, Seafoam Blue Hole, Sunken Court, Abyssal Gate and Route 21 fossil setpiece.
+- Added validation that salvage positions lie inside SwimVolumes and above the local seafloor collision limit.
+
 ## 0.4.0-alpha.2
 
 Depth ecology and release-hardening pass.
 
 - Added depth-dependent wild encounter ecology for every Deep Dive map while preserving Gen1Recomp's vanilla encounter RNG and battle flow.
-- Route 19 now changes from sunlit reef species to stronger channel encounters as the player descends.
-- Route 20 now has coral-shelf, open-blue and deep Seafoam-rift encounter layers.
-- Seafoam now changes between Ice Gallery and Blue Hole ecology.
-- Route 21 now has sunlit, twilight and abyssal encounter layers, with stronger species and levels in the deepest water.
+- Route 19 changes from sunlit reef species to stronger channel encounters as the player descends.
+- Route 20 has coral-shelf, open-blue and deep Seafoam-rift encounter layers.
+- Seafoam changes between Ice Gallery and Blue Hole ecology.
+- Route 21 has sunlit, twilight and abyssal encounter layers, with stronger species and levels in the deepest water.
 - Added validation that every legal swimming depth is covered by exactly ordered encounter bands with ten vanilla-compatible encounter slots.
 - Added a standalone travel-graph validator for DDD map ids, unique indices, map block counts, underwater arrival rectangles, SurfaceZone containment and internal Route 20/Seafoam warps.
 - Improved generated map previews with a phone-readable minimum canvas width and centered narrow maps.
-- Kept the complete 0.4.0-alpha.1 four-map migration, setpieces, multi-map depth continuity and release preview generation.
 
 ## 0.4.0-alpha.1
 
