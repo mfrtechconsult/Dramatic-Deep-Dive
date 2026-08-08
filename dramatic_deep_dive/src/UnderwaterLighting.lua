@@ -1,5 +1,6 @@
 local UnderwaterLighting = {}
 UnderwaterLighting.__index = UnderwaterLighting
+local unpackArgs = table.unpack or unpack
 
 local function clamp(value, lo, hi)
   return math.max(lo, math.min(hi, value))
@@ -40,9 +41,6 @@ function UnderwaterLighting:tint(base)
   local ratio = clamp(((state.depth or volume.minDepth) - volume.minDepth)
     / (maxDepth - volume.minDepth), 0, 1)
 
-  -- Sunlit cyan near the surface, increasingly blue/teal and dim in the
-  -- abyss. This multiplies the provider's own day/night tint instead of
-  -- replacing it, preserving its lighting model.
   local water = {
     lerp(0.78, 0.30, ratio),
     lerp(0.94, 0.58, ratio),
@@ -61,8 +59,6 @@ function UnderwaterLighting:install()
   if not (Voxel3D and type(Voxel3D.beginScene) == "function") then return false end
   self.voxel3d = Voxel3D
 
-  -- A previous hot reload may already own the wrapper; update the controller
-  -- reference instead of stacking another beginScene layer.
   Voxel3D.dramaticDeepDiveLighting = self
   if Voxel3D.dramaticDeepDiveLightingHook then return true end
 
@@ -76,7 +72,7 @@ function UnderwaterLighting:install()
     local results = { pcall(innerBeginScene, ...) }
     Voxel3D.tint = previous
     if not results[1] then error(results[2], 0) end
-    return table.unpack(results, 2)
+    return unpackArgs(results, 2)
   end
   Voxel3D.dramaticDeepDiveLightingHook = true
   return true
