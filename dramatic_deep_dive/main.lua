@@ -32,6 +32,7 @@ return function(mod)
   local UnderwaterLighting = loadModule(mod, "src/UnderwaterLighting.lua")
   local SubmergedTransitionGuard = loadModule(mod, "src/SubmergedTransitionGuard.lua")
   local DepthEncounters = loadModule(mod, "src/DepthEncounters.lua")
+  local AmbientLOD = loadModule(mod, "src/AmbientLOD.lua")
   local VoxelRenderer = loadModule(mod, "src/VoxelRenderer.lua")
   local volumeDefinitions = loadModule(mod, "data/volumes.lua")
   local diveDefinitions = loadModule(mod, "data/dive_links.lua")
@@ -40,9 +41,9 @@ return function(mod)
   local depthEncounterDefinitions = loadModule(mod, "data/depth_encounters.lua")
   if not (Content and VolumeRegistry and FollowerSprites and FollowerBridge and DiveTravel
       and Progression and DeepDive and SceneDecor and SetpieceDecor and SceneGameplay
-      and UnderwaterLighting and SubmergedTransitionGuard and DepthEncounters and VoxelRenderer
-      and volumeDefinitions and diveDefinitions and sceneDefinitions and setpieceDefinitions
-      and depthEncounterDefinitions) then
+      and UnderwaterLighting and SubmergedTransitionGuard and DepthEncounters and AmbientLOD
+      and VoxelRenderer and volumeDefinitions and diveDefinitions and sceneDefinitions
+      and setpieceDefinitions and depthEncounterDefinitions) then
     return
   end
   if not Content.register(mod) then return end
@@ -67,6 +68,7 @@ return function(mod)
   local underwaterLighting = UnderwaterLighting.new(mod, controller)
   local transitionGuard = SubmergedTransitionGuard.new(mod, controller, registry)
   local depthEncounters = DepthEncounters.new(mod, controller, depthEncounterDefinitions)
+  local ambientLOD = AmbientLOD.new(mod, sceneDecor)
   voxelRenderer:setController(controller)
 
   travel:install()
@@ -77,6 +79,7 @@ return function(mod)
   underwaterLighting:install()
   sceneGameplay:install()
   depthEncounters:install()
+  ambientLOD:install()
 
   mod.exports.isActive = function() return controller:isActive() end
   mod.exports.isUnderwater = function() return controller:isActive() end
@@ -94,6 +97,7 @@ return function(mod)
     local band, mapId = depthEncounters:currentBand()
     return band and band.id or nil, mapId
   end
+  mod.exports.ambientLODStats = function() return ambientLOD:stats() end
   mod.exports.registerVolume = function(id, definition, owner)
     return registry:register(id, definition, owner or "external")
   end
