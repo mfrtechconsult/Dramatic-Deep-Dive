@@ -7,69 +7,106 @@ local function check(condition, message)
   if not condition then fail(message) end
 end
 
-local volumes = dofile("dramatic_deep_dive/data/volumes.lua")
-local scenes = dofile("dramatic_deep_dive/data/scenes.lua")
-local map = dofile("dramatic_deep_dive/maps/DDD_ROUTE21_ABYSS.lua")
+local ROOT = "dramatic_deep_dive/"
+local mapSpecs = dofile(ROOT .. "data/maps.lua")
+local volumes = dofile(ROOT .. "data/volumes.lua")
+local scenes = dofile(ROOT .. "data/scenes.lua")
 
-local volume = volumes.route21_abyss
-local scene = scenes.route21_abyss
-check(volume ~= nil, "route21_abyss volume missing")
-check(scene ~= nil, "route21_abyss scene missing")
-check(scene.mapId == map.id, "scene map id does not match map")
-check(volume.mapId == map.id, "volume map id does not match map")
+local minimumUsableDepth = {
+  DDD_ROUTE19_REEF_PASSAGE = 130,
+  DDD_ROUTE20_SEAFLOOR = 230,
+  DDD_SEAFOAM_SUNKEN_CAVE = 170,
+  DDD_ROUTE21_ABYSS = 210,
+}
 
-local worldWidth = map.width * 2 * 16
-local worldDepth = map.height * 2 * 16
-check(worldWidth == 320, "Route 21 world width should remain 320 pixels")
-check(worldDepth == 1440, "Route 21 world depth should remain 1440 pixels")
-check(volume.defaultFloorDepth >= 220, "central abyss is not deep enough")
-check(volume.defaultFloorDepth - volume.seabedClearance >= 210,
-  "usable abyss depth fell below 210")
-
-local previousEnd = 0
-for index, district in ipairs(scene.districts or {}) do
-  check(district.z0 == previousEnd,
-    string.format("district %d does not start where previous one ended", index))
-  check(district.z1 > district.z0, "district has invalid range")
-  previousEnd = district.z1
-end
-check(previousEnd == worldDepth, "districts do not cover the complete Route 21 map")
-
-local function pointInWorld(label, x, z)
-  check(type(x) == "number" and type(z) == "number", label .. " has invalid position")
-  check(x >= 0 and x <= worldWidth, label .. " x outside map")
-  check(z >= 0 and z <= worldDepth, label .. " z outside map")
+local function volumeForMap(mapId)
+  for _, volume in pairs(volumes) do
+    if volume.mapId == mapId then return volume end
+  end
 end
 
-for index, structure in ipairs(scene.structures or {}) do
-  pointInWorld("structure " .. index, structure.x, structure.z)
+local function sceneForMap(mapId)
+  for _, scene in pairs(scenes) do
+    if scene.mapId == mapId then return scene end
+  end
 end
 
-for index, spec in ipairs(scene.scatter or {}) do
-  pointInWorld("scatter " .. index .. " minimum", spec.x0, spec.z0)
-  pointInWorld("scatter " .. index .. " maximum", spec.x1, spec.z1)
-  check((spec.count or 0) > 0, "scatter has no instances")
-end
+local totalStructures, totalScatter, totalVents, totalSchools = 0, 0, 0, 0
 
-for index, cluster in ipairs(scene.crystalClusters or {}) do
-  pointInWorld("crystal cluster " .. index, cluster.x, cluster.z)
-end
-for index, vent in ipairs(scene.bubbleVents or {}) do
-  pointInWorld("bubble vent " .. index, vent.x, vent.z)
-  check((vent.height or 0) > 0 and (vent.speed or 0) > 0, "invalid bubble vent")
-end
-for index, shaft in ipairs(scene.lightShafts or {}) do
-  pointInWorld("light shaft " .. index, shaft.x, shaft.z)
-  check((shaft.bottomDepth or 0) > volume.minDepth, "light shaft is too shallow")
-end
-for index, school in ipairs(scene.fishSchools or {}) do
-  pointInWorld("fish school " .. index, school.x, school.z)
-  check((school.count or 0) > 0 and (school.radius or 0) > 0, "invalid fish school")
-  check((school.depth or 0) >= volume.minDepth, "fish school above swim column")
-  check((school.depth or 0) <= volume.defaultFloorDepth, "fish school below abyss floor")
+for _, spec in ipairs(mapSpecs) do
+  local map = dofile(ROOT .. spec.file)
+  local volume = volumeForMap(map.id)
+  local scene = sceneForMap(map.id)
+  check(volume ~= nil, map.id .. " volume missing")
+  check(scene ~= nil, map.id .. " scene missing")
+  check(scene.mapId == map.id, map.id .. " scene map id mismatch")
+  check(volume.mapId == map.id, map.id .. " volume map id mismatch")
+
+  local worldWidth = map.width * 2 * 16
+  local worldDepth = map.height * 2 * 16
+  local usableDepth = volume.defaultFloorDepth - volume.seabedClearance
+  check(usableDepth >= (minimumUsableDepth[map.id] or 60), map.id .. " is not deep enough")
+
+  for _, swim in ipairs(volume.swimVolumes or {}) do
+    check(swim.left >= 0 and swim.top >= 0, map.id .. " SwimVolume starts outside map")
+    check(swim.right < map.width * 2 and swim.bottom < map.height * 2,
+      map.id .. " SwimVolume ends outside map")
+  end
+
+  local function pointInWorld(label, x, z)
+    check(type(x) == "number" and type(z) == "number", label .. " invalid position")
+    check(x >= 0 and x <= worldWidth, label .. " x outside map")
+    check(z >= 0 and z <= worldDepth, label .. " z outside map")
+  end
+
+  for index, structure in ipairs(scene.structures or {}) do
+    pointInWorld(map.id .. " structure " .. index, structure.x, structure.z)
+  end
+  for index, scatter in ipairs(scene.scatter or {}) do
+    pointInWorld(map.id .. " scatter " .. index .. " min", scatter.x0, scatter.z0)
+    pointInWorld(map.id .. " scatter " .. index .. " max", scatter.x1, scatter.z1)
+    check((scatter.count or 0) > 0, map.id .. " scatter has no instances")
+  end
+  for index, cluster in ipairs(scene.crystalClusters or {}) do
+    pointInWorld(map.id .. " crystal cluster " .. index, cluster.x, cluster.z)
+  end
+  for index, vent in ipairs(scene.bubbleVents or {}) do
+    pointInWorld(map.id .. " bubble vent " .. index, vent.x, vent.z)
+    check((vent.height or 0) > 0 and (vent.speed or 0) > 0, map.id .. " invalid bubble vent")
+  end
+  for index, shaft in ipairs(scene.lightShafts or {}) do
+    pointInWorld(map.id .. " light shaft " .. index, shaft.x, shaft.z)
+    check((shaft.bottomDepth or 0) > volume.minDepth, map.id .. " light shaft too shallow")
+  end
+  for index, school in ipairs(scene.fishSchools or {}) do
+    pointInWorld(map.id .. " fish school " .. index, school.x, school.z)
+    check((school.count or 0) > 0 and (school.radius or 0) > 0, map.id .. " invalid fish school")
+    check((school.depth or 0) >= volume.minDepth, map.id .. " fish school above swim column")
+    check((school.depth or 0) <= volume.defaultFloorDepth, map.id .. " fish school below floor")
+  end
+
+  -- District coverage must span the principal travel axis without gaps.
+  local districts = scene.districts or {}
+  check(#districts > 0, map.id .. " has no districts")
+  local axis = districts[1].axis or "z"
+  local expectedEnd = axis == "x" and worldWidth or worldDepth
+  local cursor = 0
+  for index, district in ipairs(districts) do
+    check((district.axis or "z") == axis, map.id .. " mixes district axes")
+    local from = axis == "x" and district.x0 or district.z0
+    local to = axis == "x" and district.x1 or district.z1
+    check(from == cursor, string.format("%s district %d leaves a gap", map.id, index))
+    check(to > from, map.id .. " district has invalid range")
+    cursor = to
+  end
+  check(cursor == expectedEnd, map.id .. " districts do not cover full map axis")
+
+  totalStructures = totalStructures + #(scene.structures or {})
+  totalScatter = totalScatter + #(scene.scatter or {})
+  totalVents = totalVents + #(scene.bubbleVents or {})
+  totalSchools = totalSchools + #(scene.fishSchools or {})
 end
 
 print(string.format(
-  "Route 21 scene OK: %d structures, %d scatter groups, %d bubble vents, %d fish schools",
-  #(scene.structures or {}), #(scene.scatter or {}),
-  #(scene.bubbleVents or {}), #(scene.fishSchools or {})))
+  "Deep Dive scenes OK: %d maps, %d structures, %d scatter groups, %d vents, %d fish schools",
+  #mapSpecs, totalStructures, totalScatter, totalVents, totalSchools))
