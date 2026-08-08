@@ -156,12 +156,7 @@ function VoxelRenderer:drawCurrentVolume()
     Voxel3D.draw(geo.floor, floorTexture)
   end
 
-  -- Procedural landmarks, coral, kelp, ruins, fish and bubbles share the
-  -- exact same 3D pass as the terrain, so they occlude correctly instead of
-  -- looking like flat screen-space decorations.
-  if self.sceneDecor then
-    self.sceneDecor:draw(volume)
-  end
+  if self.sceneDecor then self.sceneDecor:draw(volume) end
 
   if geo.surface then
     pcall(love.graphics.setDepthMode, "lequal", false)
@@ -188,7 +183,8 @@ end
 function VoxelRenderer:install()
   if self.installed then return true end
   local Voxel3D = self:providerModule("Voxel3D")
-  if not (Voxel3D and type(Voxel3D.endScene) == "function") then
+  if not (Voxel3D and type(Voxel3D.beginScene) == "function"
+      and type(Voxel3D.endScene) == "function") then
     if not self.warned and self.mod.log then
       self.mod.log:warn("Battle Art Voxel Fork did not expose Voxel3D; custom underwater geometry is disabled")
       self.warned = true
@@ -198,18 +194,39 @@ function VoxelRenderer:install()
 
   self.voxel3d = Voxel3D
   if self.sceneDecor then self.sceneDecor:setVoxel3D(Voxel3D) end
-  local renderer = self
-  local innerEndScene = Voxel3D.endScene
-  function Voxel3D.endScene(...)
-    if renderer.controller and renderer.controller:isActive() then
-      local ok, err = pcall(renderer.drawCurrentVolume, renderer)
-      if not ok and renderer.mod.log then
-        renderer.mod.log:error("underwater voxel geometry failed: %s", tostring(err))
-      end
+
+  -- Store the current renderer on the provider so hot reload replaces the
+  -- target instead of stacking another pair of global Voxel3D wrappers.
+  Voxel3D.dramaticDeepDiveRenderer = self
+
+  if not Voxel3D.dramaticDeepDiveBeginSceneHook then
+    local innerBeginScene = Voxel3D.beginScene
+    function Voxel3D.beginScene(w, h, cx, cy, vw, vh, sky, slot)
+      local renderer = Voxel3D.dramaticDeepDiveRenderer
+      if renderer then renderer.activeSlot = slot or "world" end
+      return innerBeginScene(w, h, cx, cy, vw, vh, sky, slot)
     end
-    return innerEndScene(...)
+    Voxel3D.dramaticDeepDiveBeginSceneHook = true
   end
-  Voxel3D.dramaticDeepDiveEndSceneHook = true
+
+  if not Voxel3D.dramaticDeepDiveEndSceneHook then
+    local innerEndScene = Voxel3D.endScene
+    function Voxel3D.endScene(...)
+      local renderer = Voxel3D.dramaticDeepDiveRenderer
+      if renderer and renderer.activeSlot == "world"
+          and renderer.controller and renderer.controller:isActive() then
+        local ok, err = pcall(renderer.drawCurrentVolume, renderer)
+        if not ok and renderer.mod.log then
+          renderer.mod.log:error("underwater voxel geometry failed: %s", tostring(err))
+        end
+      end
+      local result = innerEndScene(...)
+      if renderer then renderer.activeSlot = nil end
+      return result
+    end
+    Voxel3D.dramaticDeepDiveEndSceneHook = true
+  end
+
   self.installed = true
   return true
 end
