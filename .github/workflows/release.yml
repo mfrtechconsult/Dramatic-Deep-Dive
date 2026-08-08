@@ -1,0 +1,53 @@
+name: Publish mod release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - dramatic_deep_dive/manifest.json
+      - .github/workflows/release.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Read mod version
+        id: version
+        shell: bash
+        run: |
+          VERSION=$(python3 -c 'import json; print(json.load(open("dramatic_deep_dive/manifest.json", encoding="utf-8"))["version"])')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Build installable ZIP
+        shell: bash
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          ZIP="dramatic_deep_dive-v${VERSION}.zip"
+          zip -r "$ZIP" dramatic_deep_dive
+          echo "ZIP=$ZIP" >> "$GITHUB_ENV"
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          VERSION="${{ steps.version.outputs.version }}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists; nothing to do."
+            exit 0
+          fi
+          gh release create "$TAG" "$ZIP#Dramatic Deep Dive ${VERSION} (installable ZIP)" \
+            --target "$GITHUB_SHA" \
+            --title "Dramatic Deep Dive ${VERSION}" \
+            --prerelease \
+            --generate-notes
