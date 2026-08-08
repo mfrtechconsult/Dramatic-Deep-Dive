@@ -1,7 +1,7 @@
 {
   "id": "DRAMATIC_DEEP_DIVE",
   "name": "Dramatic Deep Dive",
-  "version": "0.1.0-alpha.1",
+  "version": "0.2.0-alpha.1",
   "api": 2,
   "entry": "main.lua",
   "profile": "content",
@@ -9,19 +9,20 @@
   "game_version": "0.0.0-dev || >=0.1.69 <2.0.0",
   "priority": 910,
   "dependencies": [
-    "kanto_dive@>=1.5.3 <2.0.0",
     "BATTLE_ART_VOXEL_FORK@>=1.7.6 <2.0.0",
     "PokePCFollowers_VoxelMerge"
   ],
   "optional_dependencies": [
     "DRAMATIC_SKY_RIDE@>=0.1.1 <2.0.0"
   ],
-  "conflicts": [],
+  "conflicts": [
+    "kanto_dive"
+  ],
   "permissions": [
     "engine_internals",
     "filesystem"
   ],
   "affects_link": false,
-  "description": "Voxel underwater free-swimming layer for Kanto Dive: continuous depth, authored swim volumes, seafloor collision and Pokemon mounts.",
+  "description": "Standalone Gen1Recomp underwater traversal: HM06 DIVE, free 3D swimming, continuous depth, Pokemon mounts, authored abyss volumes and Voxel seafloor geometry.",
   "github": "mfrtechconsult/Dramatic-Deep-Dive"
 }

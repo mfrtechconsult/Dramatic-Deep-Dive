@@ -1,55 +1,57 @@
 # Tiled authoring contract
 
-Dramatic Deep Dive is designed so future underwater areas can be authored in Tiled without encoding movement rules directly in Lua.
-
-The runtime representation used by `data/volumes.lua` mirrors the following object layers.
+Dramatic Deep Dive authors underwater space directly. Kanto Dive maps can be migrated into this format, but no Kanto Dive runtime objects are required.
 
 ## `SwimVolume`
 
-Rectangle objects defining where free underwater X/Y movement is allowed.
-
-Properties:
-
-- `id`: stable unique name;
-- `mapId`: Gen1Recomp underwater map id when not inherited from the map definition.
-
-A movement target outside every `SwimVolume` is blocked even if the underlying tile is normally passable.
-
-## `DepthZones`
-
-Rectangle objects defining how deep the local seafloor is below the water surface.
+Rectangle objects defining the horizontal X/Y area in which free 1ST/3RD swimming is allowed.
 
 Properties:
 
 - `id`;
-- `floorDepth`: positive depth value.
+- `mapId` when not inherited from the map;
+- optional authoring metadata.
 
-If multiple zones overlap, the shallowest floor wins. Runtime maximum swimmer depth is `floorDepth - seabedClearance`.
+Targets outside every `SwimVolume` are blocked even though Deep Dive bypasses the normal grid collision inside the volume.
 
-The volume's `defaultFloorDepth` should be the deepest bottom in that volume. `DepthZones` then raise shelves above it; overlapping zones use the shallowest floor. This keeps runtime collision and procedural Voxel geometry identical while the player's vertical position remains continuous.
+## `DepthZones`
 
-## `DiveLandings` / `SurfaceZones`
+Rectangle objects defining local seafloor depth below the water surface.
 
-Rectangle objects marking authored places connected to Kanto Dive DIVE/SURFACE links.
+Properties:
 
-Deep Dive never performs the surface warp itself. Kanto Dive remains authoritative for badge checks, link pairing and the SURFACE field move.
+- `id`;
+- `floorDepth` in world pixels.
 
-## `DiveZones`
+The map-level `defaultFloorDepth` is the deepest bottom. `DepthZones` raise shelves and canyon shoulders above it. When zones overlap, runtime collision uses the shallowest floor.
 
-These remain owned by Kanto Dive. Deep Dive consumes the underwater map/zone entered by Kanto Dive rather than creating a competing progression system.
+Maximum swimming depth is:
 
-## Route 19 alpha.1
+`floorDepth - seabedClearance`
 
-The proof of concept maps the existing `KD_ROUTE19_REEF_PASSAGE` area as:
+## `SurfaceZones`
 
-- one `SwimVolume`: cells `(2,2)` through `(17,5)`;
-- water surface: world Y `96`;
-- minimum swim depth: `28`;
-- west shelf: floor depth `64`;
-- central channel: floor depth `92`;
-- east shelf: floor depth `64`;
-- west/east `SurfaceZones` matching Kanto Dive's existing four-by-four link rectangles.
+Rectangle objects marking locations where the standalone `SURFACE` field action may be offered. Travel coordinates are paired separately in `data/dive_links.lua` so progression/travel can evolve independently from 3D terrain.
 
-## Planned importer
+## Route 21 standalone prototype
 
-A future milestone can export these layers from Tiled to Lua/JSON. The runtime registry is already separated from Route 19 data so adding the importer will not require rewriting the swimming controller.
+`DDD_ROUTE21_ABYSS` uses one full-map swim volume covering cells `(0,0)` through `(19,89)`.
+
+Vertical profile:
+
+- `surfaceHeight = 256`;
+- `minDepth = 24`;
+- `defaultFloorDepth = 228`;
+- `seabedClearance = 6`;
+- north shelf `0..17`: floor `96`;
+- north drop `18..29`: floor `140`;
+- central side walls `30..59`: floor `168`;
+- central channel `30..59`, x `5..14`: default floor `228`;
+- south rise `60..71`: floor `160`;
+- south shelf `72..89`: floor `108`.
+
+Three surface windows mirror the historical Route 21 Kanto Dive link rectangles, but point at the new DDD-owned map.
+
+## Migration plan
+
+The remaining Kanto Dive Route 19, Route 20 and Seafoam layouts will be converted to DDD-owned map ids and then expanded vertically rather than copied as shallow floors. Future Tiled exports should generate both map geometry and the Deep Dive volume data from one source of truth.

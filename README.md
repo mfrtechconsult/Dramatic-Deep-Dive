@@ -1,73 +1,78 @@
 # Dramatic Deep Dive
 
-**Dramatic Deep Dive** is a Gen1Recomp gameplay mod that turns **Kanto Dive** underwater maps into a Voxel free-swimming space with continuous depth.
+**Dramatic Deep Dive** is now a standalone Gen1Recomp underwater traversal mod. It is no longer an addon for Kanto Dive: it owns HM06 DIVE, DIVE/SURFACE travel, underwater maps and the free-swimming runtime itself.
 
-It is a separate mod inspired by Dramatic Sky Ride. It does **not** modify or bundle Dramatic Sky Ride or Kanto Dive.
+Kanto Dive is still being used as a development reference for the first underwater map layouts, but it is **not required at runtime** and is marked as conflicting to avoid duplicate HM/map systems.
 
 ## Current version
 
-`0.1.0-alpha.1` — Route 19 proof of concept.
+`0.2.0-alpha.1` — standalone Route 21 abyss prototype.
 
-### Implemented
+## What changed from alpha.1
 
-- automatically enters Deep Dive mode after Kanto Dive's DIVE warp;
-- forces Battle Art Voxel Fork to **3RD** while submerged;
-- restores the player's previous Voxel level after surfacing;
-- free X/Y movement inside authored `SwimVolume` bounds;
-- continuous depth rather than discrete underwater floors;
-- `R2` / `Page Up` ascends;
-- `L2` / `Page Down` dives deeper;
-- authored `DepthZones` provide a variable seafloor ceiling and prevent clipping into the bottom;
-- matching 3D seafloor shelves/cliffs are injected into the active Voxel scene;
-- a translucent world-space water surface is rendered above the swimmer;
-- depth and target depth persist in mod save data;
-- the first party Pokémon that knows **DIVE** is used as the visible underwater mount when its PokePC follower sprite is available;
-- optional visible trainer rider;
-- HUD depth gauge and a `SURFACE AVAILABLE` hint;
-- Kanto Dive remains authoritative for HM06, badges, DIVE/SURFACE mappings and actual surface warps;
-- Route 19 supports both existing Kanto Dive entrances.
+- removed the hard dependency on Kanto Dive;
+- added Deep Dive-owned HM06 DIVE and compatibility data;
+- added Deep Dive-owned DIVE/SURFACE travel service;
+- imported the Route 21 trench layout into the standalone map `DDD_ROUTE21_ABYSS`;
+- vendored the underwater tileset under a Deep Dive-owned asset path;
+- expanded the Route 21 underwater column to more than 200 world pixels of usable depth;
+- added a central abyss with shallow shelves, drops and side walls;
+- added three independent DIVE/SURFACE windows under Route 21 south of Pallet Town;
+- followers are fully suspended while underwater rather than remaining visible beside the mount;
+- rider is hidden automatically in 1ST camera mode;
+- 1ST and 3RD free cameras are both supported underwater;
+- added smooth B-button swim boost through Battle Art Voxel Fork's existing FreeMove path;
+- increased vertical-control speed for the much larger depth range.
+
+## Controls
+
+- movement: normal free-move controls in 1ST/3RD;
+- `R2` / `Page Up`: ascend;
+- `L2` / `Page Down`: dive deeper;
+- hold `B`: smooth swim boost;
+- `SURFACE`: available from the party submenu when inside an authored surface window.
+
+## Route 21 abyss
+
+The first full-size Deep Dive area sits below Route 21, immediately south of Pallet Town. It uses the same 20 × 90 movement-cell footprint as Route 21.
+
+The water column is no longer a shallow fake altitude layer:
+
+- water surface Y: `256`;
+- minimum depth: `24`;
+- deepest seafloor: `228`;
+- usable deepest swimming depth: `222` after seabed clearance;
+- north shelf: floor depth `96`;
+- north drop: `140`;
+- central side walls: `168`;
+- central trench: `228`;
+- south rise: `160`;
+- south shelf: `108`.
+
+This produces a real canyon profile: the player can descend from shelf water into a substantially deeper central abyss and climb back out without changing maps.
 
 ## Dependencies
 
 - Gen1Recomp with Mod API 2;
-- Kanto Dive `>=1.5.3 <2.0.0`;
 - Battle Art Voxel Fork `>=1.7.6 <2.0.0`;
-- PokePC Followers Voxel Merge;
-- Dramatic Sky Ride `>=0.1.1 <2.0.0` is optional and is not modified by this mod.
+- PokePC Followers Voxel Merge.
+
+Dramatic Sky Ride remains optional. Kanto Dive must not be installed at the same time because Deep Dive now replaces its HM06/travel responsibilities.
 
 ## Installation
 
-Copy the `dramatic_deep_dive` directory into the Gen1Recomp `mods` directory so this file exists:
+Install the complete `dramatic_deep_dive` folder into Gen1Recomp's `mods` directory:
 
 `mods/dramatic_deep_dive/manifest.json`
 
-Then restart Gen1Recomp.
+GitHub releases include a ready-to-install ZIP whose root is `dramatic_deep_dive/`.
 
-## Route 19 prototype
+## Progression
 
-Kanto Dive already exposes two Route 19 links into `KD_ROUTE19_REEF_PASSAGE`. Deep Dive overlays that map with one `SwimVolume`, two shallow shelves and a deeper central channel.
+HM06 is owned by this mod. The Cinnabar Lab scientist progression used by the earlier Kanto Dive prototype is retained for now: after the Volcano Badge, he gives HM06 DIVE without replacing the vanilla TM35 interaction.
 
-The current proof of concept intentionally leaves the actual `SURFACE` action to Kanto Dive. Moving into one of the two authored surface zones displays a hint when Kanto Dive reports that `SURFACE` is available; use Kanto Dive's normal `SURFACE` field move to return above water.
+## Project direction
 
-## Authoring model
+Dramatic Deep Dive is intended to become the normal DIVE implementation for this mod ecosystem. Future underwater maps will be authored directly for its continuous-depth model rather than treating 3D swimming as a presentation layer over a separate 2D DIVE mod.
 
-Deep Dive uses four concepts designed to map cleanly to Tiled object layers:
-
-- `DiveZones`: ownership/progression remains in Kanto Dive;
-- `DiveLandings` / `SurfaceZones`: places where surfacing is authored;
-- `SwimVolume`: the X/Y region the player may freely swim through;
-- `DepthZones`: rectangles that define the local seafloor depth.
-
-See [`docs/TILED_AUTHORING.md`](docs/TILED_AUTHORING.md).
-
-## Alpha limitations
-
-- Route 19 is the only authored Deep Dive volume in alpha.1.
-- The water surface is currently a lightweight translucent plane; it does not yet use Battle Art Voxel Fork's full reflective water shader.
-- Route 19 seafloor shelves use simple procedural companion geometry in alpha.1; authored textured reef meshes are a later art pass.
-- Mount selection is automatic; a dedicated underwater mount selector is not implemented yet.
-- Underwater wild battles use Kanto Dive's existing encounter setup; battle-specific mount presentation polishing is still pending.
-
-## Repository policy
-
-This repository contains only Dramatic Deep Dive. Kanto Dive and Dramatic Sky Ride remain separate projects and are not vendored or patched here.
+Kanto Dive remains useful as source material while its existing Route 19/20/21 and Seafoam maps are migrated, but those maps will progressively receive `DDD_*` ids and native `SwimVolume`/`DepthZone` data.

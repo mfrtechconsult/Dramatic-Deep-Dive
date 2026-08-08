@@ -1,47 +1,46 @@
 # Architecture
 
-Dramatic Deep Dive deliberately separates progression, 3D presentation and authored underwater geometry.
+Dramatic Deep Dive is a standalone gameplay system. Kanto Dive is now only a migration reference for early map layouts.
 
-## Kanto Dive
+## Ownership
 
-Owns:
+Dramatic Deep Dive owns:
 
-- HM06 DIVE;
-- badge/progression checks;
-- surface-to-underwater and underwater-to-surface links;
+- HM06 DIVE and Pokémon compatibility;
+- DIVE/SURFACE party actions and travel sessions;
 - underwater map registration;
-- DIVE and SURFACE field-menu actions.
+- continuous free-swim depth;
+- `SwimVolume`, `DepthZone` and `SurfaceZone` authoring;
+- underwater follower suspension;
+- mount/rider presentation;
+- 1ST/3RD camera integration and swim boost;
+- Voxel seafloor/surface companion geometry.
 
-Deep Dive listens to `mod.kanto_dive.entered` and `mod.kanto_dive.surfaced` and also recovers from `map.entered` when a save is loaded underwater.
+Battle Art Voxel Fork remains the renderer/provider dependency. PokePC Followers Voxel Merge remains the mount-art dependency.
 
-## Battle Art Voxel Fork
+## Travel layer
 
-Owns the Voxel renderer and free-roam camera/movement implementation. Deep Dive forces pipeline level `7` (`3RD`) for the duration of an underwater session and restores the previous live level on exit.
+`src/DiveTravel.lua` maps authored surface rectangles to DDD-owned underwater maps. It handles the party-menu `DIVE` and `SURFACE` verbs, persists the travel session and keeps the engine's Surf state active underwater for compatibility.
 
-## Deep Dive controller
+The controller listens only to Deep Dive events:
 
-Owns:
+- `mod.dramatic_deep_dive.entered`;
+- `mod.dramatic_deep_dive.surfaced`.
 
-- continuous depth and target depth;
-- L2/R2 + Page Down/Page Up vertical input;
-- player world lift relative to the authored surface height;
-- swim-volume collision policy;
-- seafloor depth clamp;
-- underwater mount/rider presentation;
-- HUD and persistence.
+No Kanto Dive event or export is required.
 
-## Volume registry
+## Continuous-depth controller
 
-`data/volumes.lua` contains authored geometry independent of controller logic. External mods may call `DRAMATIC_DEEP_DIVE.exports.registerVolume(...)` to add maps without editing this repository.
+`src/DeepDive.lua` treats depth as a continuous positive distance below the water surface. The visual world lift is `surfaceHeight - depth`. L2/R2 change the target depth continuously while local seafloor depth clamps the maximum.
 
-## Voxel rendering bridge
+Horizontal movement is delegated to Battle Art Voxel Fork's existing `FreeMove`. Deep Dive temporarily replaces only the collision verdict for cells inside its authored `SwimVolume`, so the free-camera movement remains the same mechanism used by Dramatic Sky Ride.
 
-Alpha.1 uses Gen1Recomp's existing `Player:pose()` lift contract, the same seam used successfully by Dramatic Sky Ride, and Battle Art Voxel Fork's exported `Voxel3D` module. Deep Dive wraps `Voxel3D.endScene()` and, while its underwater state is active, draws companion geometry before the provider closes the 3D pass.
+## Followers
 
-The bridge currently injects:
+`src/FollowerBridge.lua` uses the same entity-detection strategy as Dramatic Sky Ride. Native Pikachu, PokePC and Followers EX entities are removed from both `ow.entities` and `ow.npcs` while submerged. They are not rendered beside the underwater mount.
 
-- a deepest default seafloor plane per `SwimVolume`;
-- raised shelf tops and vertical cliff faces for shallower `DepthZones`;
-- a translucent surface plane at the authored `surfaceHeight`.
+## Route 21 reference area
 
-The geometry uses world-pixel coordinates directly and does not alter Battle Art Voxel Fork files or its terrain mesher. A later rendering pass can replace the lightweight surface plane with the fork's reflective water shader without changing the swimming controller or authoring format.
+`DDD_ROUTE21_ABYSS` is the first standalone map. Its horizontal layout originates from the earlier Kanto Dive Route 21 trench prototype, but the map id, tileset asset, travel links and 3D depth model now belong to Deep Dive.
+
+Its central canyon reaches a floor depth of 228 world pixels, with a maximum swimmer depth of 222 after clearance.

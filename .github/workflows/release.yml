@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - dramatic_deep_dive/manifest.json
+      - dramatic_deep_dive/**
       - .github/workflows/release.yml
   workflow_dispatch:
 
@@ -18,6 +18,20 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+
+      - name: Install Lua validator
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lua5.4
+
+      - name: Validate mod sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m json.tool dramatic_deep_dive/manifest.json >/dev/null
+          while IFS= read -r -d '' file; do
+            luac5.4 -p "$file"
+          done < <(find dramatic_deep_dive -type f -name '*.lua' -print0)
 
       - name: Read mod version
         id: version
