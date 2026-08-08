@@ -27,6 +27,18 @@ local function appendUnique(list, value)
   return out
 end
 
+local function registerMapDefinition(mod, spec)
+  local map, mapError = loadLua(mod, spec.file)
+  if not map then
+    mod.log:error("Could not load underwater map %s: %s", tostring(spec.file), tostring(mapError))
+    return nil
+  end
+  if not mod.content.maps:get(map.id) then mod.content.maps:register(map.id, map) end
+  if spec.song then mod.content.map_songs:register(map.id, spec.song) end
+  if spec.encounters then mod.content.encounters:register(map.id, spec.encounters) end
+  return map
+end
+
 function Content.register(mod)
   local surf = mod.content.moves:get("SURF")
   local dive = {
@@ -40,11 +52,8 @@ function Content.register(mod)
     category = "special",
   }
   if surf and surf.anim ~= nil then dive.anim = surf.anim end
-  if mod.content.moves:get("DIVE") then
-    mod.content.moves:patch("DIVE", dive)
-  else
-    mod.content.moves:register("DIVE", dive)
-  end
+  if mod.content.moves:get("DIVE") then mod.content.moves:patch("DIVE", dive)
+  else mod.content.moves:register("DIVE", dive) end
 
   local hm = {
     id = "HM_DIVE",
@@ -54,11 +63,8 @@ function Content.register(mod)
     tossable = false,
     keyItem = true,
   }
-  if mod.content.items:get("HM_DIVE") then
-    mod.content.items:patch("HM_DIVE", hm)
-  else
-    mod.content.items:register("HM_DIVE", hm)
-  end
+  if mod.content.items:get("HM_DIVE") then mod.content.items:patch("HM_DIVE", hm)
+  else mod.content.items:register("HM_DIVE", hm) end
 
   local hmMoves = mod.content.constants:get("hmMoves") or {}
   mod.content.constants:override("hmMoves", appendUnique(hmMoves, "DIVE"))
@@ -71,31 +77,18 @@ function Content.register(mod)
   for _, speciesId in ipairs(compatibility) do
     local species = mod.content.pokemon:get(speciesId)
     if species then
-      mod.content.pokemon:patch(speciesId, {
-        tmhm = appendUnique(species.tmhm or {}, "DIVE"),
-      })
+      mod.content.pokemon:patch(speciesId, { tmhm = appendUnique(species.tmhm or {}, "DIVE") })
     end
   end
 
-  -- The first standalone tileset is copied from the proven Kanto Dive art,
-  -- but receives a DDD-owned id so Kanto Dive is no longer needed at runtime.
   local blocks = {
-    uniform(0),
-    uniform(1),
-    uniform(2),
+    uniform(0), uniform(1), uniform(2),
     { 0,3,0,0, 0,0,0,3, 3,0,0,0, 0,0,3,0 },
     { 0,7,0,0, 0,0,7,0, 0,0,0,7, 0,0,0,0 },
-    uniform(4),
-    uniform(5),
+    uniform(4), uniform(5),
     { 2,2,2,2, 6,6,2,2, 0,0,0,0, 0,0,0,0 },
-    uniform(8),
-    uniform(9),
-    uniform(10),
-    uniform(11),
-    uniform(12),
-    uniform(13),
-    uniform(14),
-    uniform(15),
+    uniform(8), uniform(9), uniform(10), uniform(11),
+    uniform(12), uniform(13), uniform(14), uniform(15),
   }
 
   if not mod.content.tilesets:get("DDD_UNDERWATER") then
@@ -115,27 +108,14 @@ function Content.register(mod)
     })
   end
 
-  local map, mapError = loadLua(mod, "maps/DDD_ROUTE21_ABYSS.lua")
-  if not map then
-    mod.log:error("Could not load Route 21 abyss map: %s", tostring(mapError))
+  local maps, mapsError = loadLua(mod, "data/maps.lua")
+  if not maps then
+    mod.log:error("Could not load underwater map registry: %s", tostring(mapsError))
     return nil
   end
-  if not mod.content.maps:get(map.id) then mod.content.maps:register(map.id, map) end
-  mod.content.map_songs:register(map.id, "Music_Dungeon2")
-  mod.content.encounters:register(map.id, {
-    grass = { rate = 24, slots = {
-      { level = 27, species = "TENTACOOL" },
-      { level = 27, species = "HORSEA" },
-      { level = 28, species = "STARYU" },
-      { level = 29, species = "SHELLDER" },
-      { level = 29, species = "TENTACOOL" },
-      { level = 30, species = "HORSEA" },
-      { level = 30, species = "STARYU" },
-      { level = 31, species = "SEADRA" },
-      { level = 31, species = "TENTACRUEL" },
-      { level = 33, species = "GYARADOS" },
-    } },
-  })
+  for _, spec in ipairs(maps) do
+    if not registerMapDefinition(mod, spec) then return nil end
+  end
 
   return true
 end
