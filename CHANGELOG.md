@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.4.0-alpha.1
+
+Standalone Kanto underwater expansion milestone.
+
+- Completed the migration of all four Kanto Dive underwater maps into Dramatic Deep Dive-owned `DDD_*` maps.
+- Added `DDD_ROUTE19_REEF_PASSAGE`, `DDD_ROUTE20_SEAFLOOR` and `DDD_SEAFOAM_SUNKEN_CAVE` alongside `DDD_ROUTE21_ABYSS`.
+- Added a generic underwater map registry so content registration is no longer hard-coded to Route 21.
+- Added standalone DIVE/SURFACE links for Route 19 and Route 20, including the Seafoam channel.
+- Added multi-map submerged-zone handling so Route 20 -> Seafoam -> Route 20 remains one continuous Deep Dive session.
+- Added a transition guard that preserves depth, target depth and the original pre-dive Voxel camera mode across internal underwater map warps.
+- Added authored continuous-depth volumes for every underwater map.
+- Route 20 now reaches 253 usable depth and contains west/east shelves plus a deep Seafoam rift.
+- Seafoam now has a 188-depth blue-hole chamber instead of behaving like a flat cave floor.
+- Added full procedural 3D environment compositions to Route 19, Route 20 and Seafoam: coral, kelp, ruins, spires, crystals, fish schools, bubbles and light shafts.
+- Added horizontal district discovery for Route 20 in addition to north/south district discovery.
+- Added a dedicated 3D setpiece renderer with depth-aware collisions.
+- Added a large shipwreck and hydrothermal smoker field to Route 20.
+- Added a cave ceiling and physical stalactite field to Seafoam.
+- Added a fossil rib cage and additional smoker field to Route 21's abyss.
+- Added real-data map preview generation from the actual Lua maps, volumes, scenes and setpieces.
+- GitHub releases now generate and attach PNG previews for all four underwater maps.
+- Expanded release validation to cover every map, volume, district, scene object and setpiece.
+
 ## 0.3.0-alpha.1
 
 Underwater environment and exploration pass.
@@ -7,17 +30,13 @@ Underwater environment and exploration pass.
 - Added a dedicated procedural 3D scene layer rendered inside Battle Art Voxel Fork's real depth-tested world pass.
 - Split Route 21 into five named underwater districts: Pallet Reef, Kelp Cathedral, Sunken Court, Abyssal Gate and Southern Gardens.
 - Added large voxel landmarks: natural rock arches, stepped rock spires, ancient gates, broken walls, a ring of columns, a submerged shrine and a giant abyss gateway.
-- Added 44+ northern reef corals and a larger southern coral garden with deterministic procedural branching.
-- Added dense voxel kelp forests with tall segmented stalks and side leaves.
-- Added crystal fields and hand-placed crystal clusters around the ruins and central abyss.
-- Added animated bubble vents rising through the water column.
-- Added four animated fish schools moving through 3D world space.
-- Added translucent volumetric-style light shafts descending from the water surface.
-- Added depth-aware underwater lighting: shallow water stays bright cyan while the central abyss becomes progressively darker and bluer.
-- Added physical 3D landmark collision. Tall ruins block swimming at their height but can be crossed by swimming above them.
-- Added district discovery banners when entering a new Route 21 underwater biome.
-- Scoped Deep Dive world geometry to the Voxel world pass so it cannot leak into Voxel battle scenes.
-- Added scene sanity validation to GitHub Actions in addition to Lua/JSON syntax checks.
+- Added deterministic procedural coral gardens and dense voxel kelp forests.
+- Added crystal fields, bubble vents, 3D fish schools and light shafts.
+- Added depth-aware underwater lighting.
+- Added physical height-aware landmark collision.
+- Added district discovery banners.
+- Scoped Deep Dive geometry to the Voxel world pass.
+- Added scene sanity validation to GitHub Actions.
 
 ## 0.2.0-alpha.1
 
@@ -27,21 +46,13 @@ Standalone architecture milestone.
 - Deep Dive now owns HM06 DIVE, DIVE compatibility, progression and DIVE/SURFACE travel.
 - Migrated the Route 21 trench base into `DDD_ROUTE21_ABYSS`.
 - Vendored the underwater tileset into the Deep Dive package.
-- Expanded Route 21 to a 24–222 usable depth range.
-- Added a 228-depth central abyss plus north/south shelves, drops and side walls.
-- Added the three Route 21 DIVE/SURFACE regions below Pallet Town.
-- Added follower suspension/purge based on the Dramatic Sky Ride follower bridge.
-- Added first-person rider hiding.
-- Added smooth B-button swim boost through Battle Art Voxel Fork FreeMove.
-- Added support for both 1ST and 3RD free-camera swimming.
-- Kept continuous seafloor collision and procedural Voxel shelf/cliff geometry.
+- Expanded Route 21 to a 24-222 usable depth range.
+- Added follower suspension/purge, first-person rider hiding, B-button swim boost and 1ST/3RD free-camera swimming.
 
 ## 0.1.0-alpha.1
 
 First Route 19 proof of concept.
 
-- Added Kanto Dive event integration.
-- Added forced Voxel 3RD underwater mode.
 - Added continuous depth controls and persistent underwater state.
 - Added `SwimVolume`, `DepthZone` and `SurfaceZone` runtime registry.
 - Added procedural seafloor and translucent water-surface geometry.
