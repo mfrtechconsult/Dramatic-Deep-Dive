@@ -1,10 +1,135 @@
--- Hand-authored scene composition for the standalone Route 21 abyss.
--- Geometry is generated procedurally at runtime by SceneDecor; this file is
--- intentionally data-only so the same concepts can later come from Tiled.
+-- Hand-authored scene composition for all standalone Deep Dive maps.
+-- Geometry is generated procedurally at runtime by SceneDecor.
 return {
+  route19_reef_passage = {
+    mapId = "DDD_ROUTE19_REEF_PASSAGE",
+    districts = {
+      { id = "reef_gate", name = "REEF GATE", z0 = 0, z1 = 128 },
+    },
+    structures = {
+      { kind = "rock_arch", x = 160, z = 64, width = 112, height = 48, thickness = 12, material = "reefRock" },
+      { kind = "spire", x = 58, z = 57, height = 42, radius = 10, material = "reefRock" },
+      { kind = "spire", x = 262, z = 72, height = 46, radius = 11, material = "reefRock" },
+    },
+    scatter = {
+      { kind = "coral", seed = 1901, count = 30, x0 = 34, x1 = 286, z0 = 36, z1 = 92, minHeight = 8, maxHeight = 26 },
+      { kind = "kelp", seed = 1902, count = 12, x0 = 42, x1 = 278, z0 = 38, z1 = 90, minHeight = 18, maxHeight = 42 },
+    },
+    crystalClusters = {
+      { x = 160, z = 67, count = 5, radius = 15, height = 26 },
+    },
+    bubbleVents = {
+      { x = 92, z = 62, count = 5, height = 92, speed = 14 },
+      { x = 226, z = 70, count = 5, height = 96, speed = 13 },
+    },
+    lightShafts = {
+      { x = 84, z = 58, width = 24, depth = 30, bottomDepth = 100 },
+      { x = 236, z = 70, width = 26, depth = 32, bottomDepth = 105 },
+    },
+    fishSchools = {
+      { seed = 3901, x = 160, z = 64, depth = 68, count = 8, radius = 66, speed = 0.35 },
+    },
+  },
+
+  route20_seafloor = {
+    mapId = "DDD_ROUTE20_SEAFLOOR",
+    districts = {
+      { id = "west_coral_shelf", name = "WEST CORAL SHELF", axis = "x", x0 = 0, x1 = 610 },
+      { id = "seafoam_rift", name = "SEAFOAM RIFT", axis = "x", x0 = 610, x1 = 990 },
+      { id = "east_current_gardens", name = "CURRENT GARDENS", axis = "x", x0 = 990, x1 = 1600 },
+    },
+    structures = {
+      { kind = "rock_arch", x = 210, z = 145, width = 150, height = 56, thickness = 16, material = "reefRock" },
+      { kind = "spire", x = 95, z = 76, height = 66, radius = 15, material = "reefRock" },
+      { kind = "spire", x = 410, z = 214, height = 78, radius = 18, material = "reefRock" },
+      { kind = "column_ring", x = 535, z = 144, radius = 62, count = 7, height = 46, material = "ruinStone", solid = true },
+      { kind = "broken_wall", x = 675, z = 86, width = 88, height = 42, thickness = 10, material = "ruinStone", solid = true },
+      { kind = "abyss_gate", x = 815, z = 145, width = 156, height = 98, thickness = 18, material = "darkStone", solid = true },
+      { kind = "spire", x = 728, z = 224, height = 122, radius = 21, material = "darkStone" },
+      { kind = "spire", x = 902, z = 70, height = 132, radius = 22, material = "darkStone" },
+      { kind = "shrine", x = 1035, z = 154, width = 76, depth = 58, height = 52, material = "ruinStone", solid = true },
+      { kind = "ruin_gate", x = 1175, z = 86, width = 92, height = 60, thickness = 12, material = "ruinStone", solid = true },
+      { kind = "rock_arch", x = 1330, z = 190, width = 146, height = 60, thickness = 15, material = "reefRock" },
+      { kind = "spire", x = 1480, z = 88, height = 78, radius = 17, material = "reefRock" },
+    },
+    scatter = {
+      { kind = "coral", seed = 2001, count = 72, x0 = 40, x1 = 570, z0 = 38, z1 = 244, minHeight = 8, maxHeight = 34 },
+      { kind = "kelp", seed = 2002, count = 44, x0 = 120, x1 = 585, z0 = 42, z1 = 240, minHeight = 20, maxHeight = 62 },
+      { kind = "rock", seed = 2003, count = 34, x0 = 620, x1 = 970, z0 = 30, z1 = 254, minHeight = 16, maxHeight = 56 },
+      { kind = "crystal", seed = 2004, count = 38, x0 = 650, x1 = 960, z0 = 36, z1 = 246, minHeight = 9, maxHeight = 36 },
+      { kind = "coral", seed = 2005, count = 76, x0 = 1010, x1 = 1560, z0 = 36, z1 = 246, minHeight = 8, maxHeight = 32 },
+      { kind = "kelp", seed = 2006, count = 52, x0 = 1030, x1 = 1540, z0 = 40, z1 = 242, minHeight = 22, maxHeight = 66 },
+    },
+    crystalClusters = {
+      { x = 745, z = 92, count = 7, radius = 22, height = 38 },
+      { x = 825, z = 154, count = 10, radius = 30, height = 48 },
+      { x = 915, z = 218, count = 8, radius = 24, height = 42 },
+      { x = 1080, z = 200, count = 6, radius = 18, height = 34 },
+    },
+    bubbleVents = {
+      { x = 165, z = 200, count = 6, height = 125, speed = 13 },
+      { x = 455, z = 84, count = 5, height = 138, speed = 14 },
+      { x = 735, z = 174, count = 7, height = 188, speed = 17 },
+      { x = 820, z = 145, count = 10, height = 238, speed = 20 },
+      { x = 920, z = 90, count = 8, height = 202, speed = 18 },
+      { x = 1210, z = 208, count = 6, height = 140, speed = 14 },
+      { x = 1460, z = 120, count = 5, height = 130, speed = 13 },
+    },
+    lightShafts = {
+      { x = 155, z = 105, width = 40, depth = 50, bottomDepth = 118 },
+      { x = 390, z = 198, width = 34, depth = 46, bottomDepth = 132 },
+      { x = 820, z = 145, width = 54, depth = 92, bottomDepth = 242 },
+      { x = 1140, z = 110, width = 38, depth = 52, bottomDepth = 150 },
+      { x = 1430, z = 190, width = 42, depth = 54, bottomDepth = 145 },
+    },
+    fishSchools = {
+      { seed = 4001, x = 250, z = 130, depth = 72, count = 13, radius = 115, speed = 0.30 },
+      { seed = 4002, x = 520, z = 180, depth = 92, count = 10, radius = 90, speed = 0.26 },
+      { seed = 4003, x = 805, z = 145, depth = 168, count = 14, radius = 118, speed = 0.20 },
+      { seed = 4004, x = 1160, z = 125, depth = 86, count = 12, radius = 108, speed = 0.31 },
+      { seed = 4005, x = 1435, z = 176, depth = 78, count = 10, radius = 92, speed = 0.34 },
+    },
+  },
+
+  seafoam_sunken_cave = {
+    mapId = "DDD_SEAFOAM_SUNKEN_CAVE",
+    districts = {
+      { id = "ice_gallery", name = "ICE GALLERY", z0 = 0, z1 = 122 },
+      { id = "blue_hole", name = "THE BLUE HOLE", z0 = 122, z1 = 256 },
+    },
+    structures = {
+      { kind = "ruin_gate", x = 84, z = 72, width = 62, height = 48, thickness = 10, material = "darkStone", solid = true },
+      { kind = "spire", x = 230, z = 58, height = 72, radius = 14, material = "darkStone" },
+      { kind = "spire", x = 270, z = 120, height = 88, radius = 16, material = "darkStone" },
+      { kind = "rock_arch", x = 160, z = 142, width = 126, height = 58, thickness = 14, material = "reefRock" },
+      { kind = "column_ring", x = 160, z = 188, radius = 58, count = 7, height = 52, material = "ruinStone", solid = true },
+      { kind = "shrine", x = 160, z = 218, width = 68, depth = 48, height = 46, material = "ruinStone", solid = true },
+    },
+    scatter = {
+      { kind = "crystal", seed = 2051, count = 46, x0 = 34, x1 = 286, z0 = 34, z1 = 224, minHeight = 10, maxHeight = 42 },
+      { kind = "rock", seed = 2052, count = 26, x0 = 30, x1 = 290, z0 = 36, z1 = 226, minHeight = 12, maxHeight = 38 },
+      { kind = "kelp", seed = 2053, count = 15, x0 = 50, x1 = 270, z0 = 130, z1 = 226, minHeight = 16, maxHeight = 38 },
+    },
+    crystalClusters = {
+      { x = 72, z = 94, count = 8, radius = 20, height = 42 },
+      { x = 248, z = 105, count = 9, radius = 24, height = 48 },
+      { x = 118, z = 188, count = 7, radius = 18, height = 38 },
+      { x = 205, z = 205, count = 10, radius = 26, height = 54 },
+    },
+    bubbleVents = {
+      { x = 91, z = 177, count = 5, height = 118, speed = 11 },
+      { x = 160, z = 210, count = 8, height = 166, speed = 16 },
+      { x = 238, z = 190, count = 5, height = 130, speed = 12 },
+    },
+    lightShafts = {},
+    fishSchools = {
+      { seed = 4051, x = 160, z = 95, depth = 82, count = 7, radius = 64, speed = 0.19 },
+      { seed = 4052, x = 165, z = 194, depth = 132, count = 8, radius = 72, speed = 0.16 },
+    },
+  },
+
   route21_abyss = {
     mapId = "DDD_ROUTE21_ABYSS",
-
     districts = {
       { id = "pallet_reef", name = "PALLET REEF", z0 = 0, z1 = 330 },
       { id = "kelp_cathedral", name = "KELP CATHEDRAL", z0 = 330, z1 = 570 },
@@ -12,29 +137,22 @@ return {
       { id = "abyssal_gate", name = "ABYSSAL GATE", z0 = 825, z1 = 1030 },
       { id = "southern_gardens", name = "SOUTHERN GARDENS", z0 = 1030, z1 = 1440 },
     },
-
-    -- Large landmarks deliberately frame the long north/south Route 21 map.
     structures = {
       { kind = "rock_arch", x = 160, z = 280, width = 122, height = 54, thickness = 13, material = "reefRock" },
       { kind = "spire", x = 45, z = 405, height = 72, radius = 15, material = "reefRock" },
       { kind = "spire", x = 276, z = 438, height = 86, radius = 18, material = "reefRock" },
-
       { kind = "ruin_gate", x = 160, z = 620, width = 96, height = 62, thickness = 12, material = "ruinStone", solid = true },
       { kind = "broken_wall", x = 55, z = 690, width = 66, height = 34, thickness = 9, material = "ruinStone", solid = true },
       { kind = "broken_wall", x = 262, z = 710, width = 72, height = 42, thickness = 9, material = "ruinStone", solid = true },
       { kind = "column_ring", x = 160, z = 760, radius = 66, count = 8, height = 50, material = "ruinStone", solid = true },
       { kind = "shrine", x = 160, z = 810, width = 72, depth = 52, height = 48, material = "ruinStone", solid = true },
-
-      -- The central chasm gets a giant gateway visible from far away.
       { kind = "abyss_gate", x = 160, z = 900, width = 138, height = 96, thickness = 16, material = "darkStone", solid = true },
       { kind = "spire", x = 42, z = 940, height = 112, radius = 19, material = "darkStone" },
       { kind = "spire", x = 280, z = 952, height = 124, radius = 20, material = "darkStone" },
-
       { kind = "rock_arch", x = 160, z = 1135, width = 132, height = 58, thickness = 14, material = "reefRock" },
       { kind = "ruin_gate", x = 82, z = 1260, width = 72, height = 48, thickness = 10, material = "ruinStone", solid = true },
       { kind = "ruin_gate", x = 240, z = 1320, width = 72, height = 48, thickness = 10, material = "ruinStone", solid = true },
     },
-
     scatter = {
       { kind = "coral", seed = 2101, count = 44, x0 = 18, x1 = 302, z0 = 35, z1 = 320, minHeight = 10, maxHeight = 30 },
       { kind = "kelp", seed = 2102, count = 52, x0 = 18, x1 = 302, z0 = 330, z1 = 575, minHeight = 24, maxHeight = 72 },
@@ -44,7 +162,6 @@ return {
       { kind = "coral", seed = 2106, count = 58, x0 = 16, x1 = 304, z0 = 1040, z1 = 1420, minHeight = 8, maxHeight = 34 },
       { kind = "kelp", seed = 2107, count = 34, x0 = 20, x1 = 300, z0 = 1060, z1 = 1390, minHeight = 22, maxHeight = 58 },
     },
-
     crystalClusters = {
       { x = 92, z = 735, count = 6, radius = 18, height = 30 },
       { x = 225, z = 790, count = 7, radius = 22, height = 38 },
@@ -52,7 +169,6 @@ return {
       { x = 245, z = 955, count = 9, radius = 24, height = 46 },
       { x = 160, z = 1015, count = 5, radius = 15, height = 34 },
     },
-
     bubbleVents = {
       { x = 56, z = 180, count = 5, height = 118, speed = 12 },
       { x = 265, z = 410, count = 6, height = 150, speed = 15 },
@@ -62,15 +178,13 @@ return {
       { x = 69, z = 1180, count = 6, height = 145, speed = 14 },
       { x = 258, z = 1340, count = 5, height = 120, speed = 12 },
     },
-
     lightShafts = {
-      { x = 78, z = 125, width = 28, depth = 38, bottomDepth = 105, alpha = 0.055 },
-      { x = 216, z = 255, width = 38, depth = 54, bottomDepth = 130, alpha = 0.045 },
-      { x = 148, z = 470, width = 32, depth = 70, bottomDepth = 155, alpha = 0.035 },
-      { x = 160, z = 875, width = 48, depth = 96, bottomDepth = 220, alpha = 0.025 },
-      { x = 245, z = 1160, width = 30, depth = 64, bottomDepth = 155, alpha = 0.04 },
+      { x = 78, z = 125, width = 28, depth = 38, bottomDepth = 105 },
+      { x = 216, z = 255, width = 38, depth = 54, bottomDepth = 130 },
+      { x = 148, z = 470, width = 32, depth = 70, bottomDepth = 155 },
+      { x = 160, z = 875, width = 48, depth = 96, bottomDepth = 220 },
+      { x = 245, z = 1160, width = 30, depth = 64, bottomDepth = 155 },
     },
-
     fishSchools = {
       { seed = 3101, x = 150, z = 195, depth = 62, count = 9, radius = 72, speed = 0.34 },
       { seed = 3102, x = 170, z = 505, depth = 88, count = 12, radius = 82, speed = 0.28 },
