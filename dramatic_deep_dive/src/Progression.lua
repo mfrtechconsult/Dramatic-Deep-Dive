@@ -2,6 +2,8 @@ local Progression = {}
 
 local MAP_ID = "CINNABAR_LAB_METRONOME_ROOM"
 local TEXT_ID = "TEXT_CINNABARLABMETRONOMEROOM_SCIENTIST1"
+-- Historical Deep Dive save key retained so alpha saves keep their HM receipt.
+-- The visible item is HM08; this internal identifier is never shown to players.
 local RECEIVED_FLAG = "MOD_DRAMATIC_DEEP_DIVE_HM06_RECEIVED"
 local BASE_COMMAND = "dramatic_deep_dive:base_metronome_scientist"
 
@@ -21,6 +23,8 @@ function Progression.install(mod)
     talk = {
       [TEXT_ID] = {
         { "face_player" },
+        { "check_item", "HM_DIVE" },
+        { "jump_if_true", "after_hm" },
         { "check_flag", RECEIVED_FLAG },
         { "jump_if_true", "after_hm" },
         { "check_item", "VOLCANOBADGE" },
@@ -33,7 +37,7 @@ function Progression.install(mod)
         { "show_text", "The VOLCANO BADGE\nproves your skill.\fTake the result of\nmy ocean research!" },
         { "give_item", "HM_DIVE", 1, false },
         { "set_flag", RECEIVED_FLAG },
-        { "show_text", "{PLAYER} received\nHM06!\fHM06 contains DIVE.\fUse it while SURFing\nsouth of PALLET TOWN." },
+        { "show_text", "{PLAYER} received\nHM08!\fHM08 contains DIVE.\fUse it while SURFing\nsouth of PALLET TOWN." },
         { "jump", "finish" },
         { "label", "after_hm" },
         { "check_flag", "EVENT_GOT_TM35" },

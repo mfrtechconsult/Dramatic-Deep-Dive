@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.4.0-alpha.4
+
+- Kept Dramatic Deep Dive completely independent as its own DIVE implementation.
+- Removed all cross-mod DIVE bridges, foreign map aliases, foreign zone discovery and foreign ecology consumption.
+- Removed every manifest dependency, optional dependency and conflict reference to another DIVE project.
+- Deep Dive owns its `DDD_*` maps, DIVE/SURFACE links, progression, encounters, depth volumes and 3D content.
+- Presents its own stable `HM_DIVE` item as HM08 and teaches the `DIVE` move.
+- Retains the historical Deep Dive alpha receipt key internally for save compatibility while all player-facing text uses HM08.
+- Added Crystal 251 as an optional dependency and additive Generation II DIVE compatibility via `__append` semantics.
+- Separated field-move compatibility from underwater mount suitability.
+- Added Battle Art Voxel Fork / Dramaless Shape renderer abstraction.
+- Preserved Dramatic Sky Ride interoperability without making Sky Ride a dependency.
+- Preserved the existing single-delegation `Player:pose()` chain and did not add a duplicate `Player:draw()` path.
+- Added an independence audit that fails if foreign DIVE map ids, events, bridges or manifest references reappear.
+
 ## 0.4.0-alpha.3
 
 Exploration, transitions and performance pass.

@@ -20,6 +20,9 @@ end
 
 return function(mod)
   local Content = loadModule(mod, "src/Content.lua")
+  local VoxelProvider = loadModule(mod, "src/VoxelProvider.lua")
+  local Crystal251Compat = loadModule(mod, "src/Crystal251Compat.lua")
+  local MountPolicy = loadModule(mod, "src/MountPolicy.lua")
   local VolumeRegistry = loadModule(mod, "src/VolumeRegistry.lua")
   local FollowerSprites = loadModule(mod, "src/FollowerSprites.lua")
   local FollowerBridge = loadModule(mod, "src/FollowerBridge.lua")
@@ -42,15 +45,24 @@ return function(mod)
   local setpieceDefinitions = loadModule(mod, "data/setpieces.lua")
   local depthEncounterDefinitions = loadModule(mod, "data/depth_encounters.lua")
   local salvageDefinitions = loadModule(mod, "data/salvage.lua")
-  if not (Content and VolumeRegistry and FollowerSprites and FollowerBridge and DiveTravel
-      and Progression and DeepDive and SceneDecor and SetpieceDecor and SceneGameplay
-      and UnderwaterLighting and SubmergedTransitionGuard and DiveTransition
-      and DepthEncounters and Salvage and AmbientLOD and VoxelRenderer and volumeDefinitions
-      and diveDefinitions and sceneDefinitions and setpieceDefinitions
-      and depthEncounterDefinitions and salvageDefinitions) then
+
+  if not (Content and VoxelProvider and Crystal251Compat and MountPolicy
+      and VolumeRegistry and FollowerSprites and FollowerBridge and DiveTravel
+      and Progression and DeepDive and SceneDecor and SetpieceDecor
+      and SceneGameplay and UnderwaterLighting and SubmergedTransitionGuard
+      and DiveTransition and DepthEncounters and Salvage and AmbientLOD
+      and VoxelRenderer and volumeDefinitions and diveDefinitions
+      and sceneDefinitions and setpieceDefinitions and depthEncounterDefinitions
+      and salvageDefinitions) then
     return
   end
+
   if not Content.register(mod) then return end
+  Crystal251Compat.install(mod)
+
+  local voxelProvider = VoxelProvider.new(mod)
+  if not voxelProvider:discover() then return end
+  voxelProvider:installCompatibilityShim()
 
   local registry = VolumeRegistry.new(mod)
   for id, definition in pairs(volumeDefinitions) do
@@ -66,15 +78,57 @@ return function(mod)
   local travel = DiveTravel.new(mod, diveDefinitions)
   local sceneDecor = SceneDecor.new(mod, registry, sceneDefinitions)
   local setpieceDecor = SetpieceDecor.new(mod, registry, setpieceDefinitions)
-  local voxelRenderer = VoxelRenderer.new(mod, registry, sceneDecor, setpieceDecor)
-  local controller = DeepDive.new(mod, registry, sprites, voxelRenderer, followerBridge, travel)
+  local voxelRenderer = VoxelRenderer.new(mod, registry, sceneDecor, setpieceDecor, voxelProvider)
+  local controller = DeepDive.new(mod, registry, sprites, voxelRenderer,
+    followerBridge, travel, MountPolicy, voxelProvider)
+
+  -- Keep the runtime controller independent from renderer and species-table
+  -- ownership. Older controller code selected the first DIVE user; override
+  -- that policy here so field-move compatibility and mount suitability remain
+  -- separate without duplicating the controller's movement/render hooks.
+  local Game = require("src.core.Game")
+  local function knowsDive(mon)
+    for _, move in ipairs(mon and mon.moves or {}) do
+      local id = type(move) == "table" and move.id or move
+      if id == "DIVE" then return true end
+    end
+    return false
+  end
+  function controller:isSuitableMount(mon)
+    if not (mon and knowsDive(mon)) then return false end
+    local def = Game.data and Game.data.pokemon and Game.data.pokemon[mon.species]
+    return MountPolicy.isSuitable(mon.species, def) == true
+  end
+  function controller:findDiveMount()
+    local party = Game.save and Game.save.party or {}
+    local remembered = self.state.mountSpecies
+    if remembered then
+      for _, mon in ipairs(party) do
+        if mon.species == remembered and self:isSuitableMount(mon) then return mon end
+      end
+    end
+    for _, mon in ipairs(party) do
+      if self:isSuitableMount(mon) then return mon end
+    end
+    return nil
+  end
+  local originalEnsureRider = controller.ensureRider
+  function controller:ensureRider()
+    if self.state.active and not self.state.mountSprite then
+      self:removeRider()
+      return
+    end
+    return originalEnsureRider(self)
+  end
   local sceneGameplay = SceneGameplay.new(mod, controller, voxelRenderer)
-  local underwaterLighting = UnderwaterLighting.new(mod, controller)
+  local underwaterLighting = UnderwaterLighting.new(mod, controller, voxelProvider)
   local transitionGuard = SubmergedTransitionGuard.new(mod, controller, registry)
   local diveTransition = DiveTransition.new(mod, controller, registry)
   local depthEncounters = DepthEncounters.new(mod, controller, depthEncounterDefinitions)
   local salvage = Salvage.new(mod, controller, salvageDefinitions)
   local ambientLOD = AmbientLOD.new(mod, sceneDecor)
+
+  controller.travel = travel
   travel:setTransition(diveTransition)
   voxelRenderer:setController(controller)
 
@@ -90,6 +144,7 @@ return function(mod)
   salvage:install()
   diveTransition:install()
 
+  mod.exports.voxelProvider = function() return voxelProvider:id(), voxelProvider:pipelineId() end
   mod.exports.isActive = function() return controller:isActive() end
   mod.exports.isUnderwater = function() return controller:isActive() end
   mod.exports.currentDepth = function() return controller:currentDepth() end
