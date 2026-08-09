@@ -27,45 +27,75 @@ local function findUpdateUpvalue(fn)
   end
 end
 
+local function discoverBoundary(root)
+  local chain = {}
+  local seen = {}
+  local current = root
+  while type(current) == "function" and not seen[current] do
+    seen[current] = true
+    chain[#chain + 1] = current
+    local index, child = findUpdateUpvalue(current)
+    if not index then break end
+    local childIndex = select(1, findUpdateUpvalue(child))
+    if not childIndex then
+      return current, index, child, chain
+    end
+    current = child
+  end
+  return nil, nil, nil, chain
+end
+
 function UpdateHookGuard.install(mod, controller)
-  local coreUpdate = OverworldState.update
-  local upvalueIndex, initialNext = findUpdateUpvalue(coreUpdate)
-  if not (upvalueIndex and initialNext) then
+  -- Install this after every Deep Dive subsystem so `rootUpdate` is the full
+  -- DDD update chain (transition -> salvage -> scene gameplay -> depth core).
+  local rootUpdate = OverworldState.update
+  local boundaryParent, boundaryIndex, initialExternal, chain =
+    discoverBoundary(rootUpdate)
+  if not (boundaryParent and boundaryIndex and initialExternal) then
     if mod.log then
-      mod.log:warn("Deep Dive update-hook guard unavailable: wrapper upvalue not found")
+      mod.log:warn("Deep Dive update-hook guard unavailable: wrapper boundary not found")
     end
     return {
       ready = false,
       recoveries = function() return 0 end,
       heartbeat = function() return 0 end,
+      protectedWrappers = function() return #(chain or {}) end,
     }
   end
 
   local heartbeat = 0
   local recoveries = 0
+  local chainSet = {}
+  for _, fn in ipairs(chain or {}) do chainSet[fn] = true end
 
-  local function bindNext(nextUpdate)
+  local function bindExternal(nextUpdate)
     if type(nextUpdate) ~= "function" then return false end
-    local function heartbeatNext(self, dt, ...)
+    local function heartbeatExternal(self, dt, ...)
       heartbeat = heartbeat + 1
       return nextUpdate(self, dt, ...)
     end
-    debug.setupvalue(coreUpdate, upvalueIndex, heartbeatNext)
+    debug.setupvalue(boundaryParent, boundaryIndex, heartbeatExternal)
     return true
   end
 
-  bindNext(initialNext)
+  bindExternal(initialExternal)
 
   local function recover(reason)
     local current = OverworldState.update
-    if current == coreUpdate then return true end
+    if current == rootUpdate then return true end
     if type(current) ~= "function" then return false end
-    if not bindNext(current) then return false end
-    OverworldState.update = coreUpdate
+
+    -- Restoring an intermediate DDD wrapper only needs the complete root put
+    -- back on top. For a genuinely external handler (Wilds or another mod),
+    -- retarget only DDD's deepest external edge around that CURRENT function.
+    if not chainSet[current] then
+      if not bindExternal(current) then return false end
+    end
+    OverworldState.update = rootUpdate
     recoveries = recoveries + 1
     if mod.log then
       mod.log:info(
-        "Deep Dive update hook was displaced; reattached around current handler (%s)",
+        "Deep Dive update hook was displaced; full DDD chain reattached (%s)",
         tostring(reason or "heartbeat"))
     end
     return true
@@ -73,8 +103,7 @@ function UpdateHookGuard.install(mod, controller)
 
   -- Guard at the fixed logic boundary. Game.update can render without running
   -- a logic tick on high-refresh displays, so using it would create false
-  -- missing-heartbeat detections. Every Game.step that starts and ends in the
-  -- overworld should execute the active OverworldController.update chain once.
+  -- missing-heartbeat detections.
   local gameStep = Game.step
   if type(gameStep) == "function" then
     Game.step = function(...)
@@ -100,11 +129,16 @@ function UpdateHookGuard.install(mod, controller)
     end
   end
 
+  if mod.log then
+    mod.log:info("Deep Dive update-chain guard armed (%d wrappers)", #(chain or {}))
+  end
+
   return {
     ready = true,
     ensure = recover,
     recoveries = function() return recoveries end,
     heartbeat = function() return heartbeat end,
+    protectedWrappers = function() return #(chain or {}) end,
   }
 end
 
