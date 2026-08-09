@@ -71,17 +71,30 @@ function UpdateHookGuard.install(mod, controller)
     return true
   end
 
-  local gameUpdate = Game.update
-  if type(gameUpdate) == "function" then
-    Game.update = function(...)
+  -- Guard at the fixed logic boundary. Game.update can render without running
+  -- a logic tick on high-refresh displays, so using it would create false
+  -- missing-heartbeat detections. Every Game.step that starts and ends in the
+  -- overworld should execute the active OverworldController.update chain once.
+  local gameStep = Game.step
+  if type(gameStep) == "function" then
+    Game.step = function(...)
+      local owBefore = Game.overworld
+      local stackBefore = Game.stack
+      local topBefore = stackBefore and stackBefore.top and stackBefore:top() or nil
+      local expectedOverworldTick = owBefore ~= nil
+        and (not stackBefore or topBefore == owBefore)
       local before = heartbeat
-      local a, b, c, d, e = gameUpdate(...)
-      local ow = Game.overworld
-      local stack = Game.stack
-      local top = stack and stack.top and stack:top() or nil
-      local overworldRunning = ow ~= nil and (not stack or top == ow)
-      if active(controller) and overworldRunning and heartbeat == before then
-        recover("active-dive heartbeat")
+
+      local a, b, c, d, e = gameStep(...)
+
+      local owAfter = Game.overworld
+      local stackAfter = Game.stack
+      local topAfter = stackAfter and stackAfter.top and stackAfter:top() or nil
+      local stillInOverworld = owAfter ~= nil
+        and (not stackAfter or topAfter == owAfter)
+      if active(controller) and expectedOverworldTick and stillInOverworld
+          and heartbeat == before then
+        recover("active-dive logic heartbeat")
       end
       return a, b, c, d, e
     end
