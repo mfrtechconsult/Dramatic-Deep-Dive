@@ -137,7 +137,6 @@ return function(mod)
   transitionGuard:install()
   Progression.install(mod)
   controller:install()
-  local updateHookGuard = UpdateHookGuard.install(mod, controller)
   voxelRenderer:install()
   underwaterLighting:install()
   sceneGameplay:install()
@@ -145,6 +144,8 @@ return function(mod)
   ambientLOD:install()
   salvage:install()
   diveTransition:install()
+  -- Arm this last so the protected root includes every DDD update wrapper.
+  local updateHookGuard = UpdateHookGuard.install(mod, controller)
 
   mod.exports.voxelProvider = function() return voxelProvider:id(), voxelProvider:pipelineId() end
   mod.exports.isActive = function() return controller:isActive() end
@@ -176,5 +177,6 @@ return function(mod)
     ensureUpdateHook = updateHookGuard and updateHookGuard.ensure or nil,
     hookRecoveries = updateHookGuard and updateHookGuard.recoveries or function() return 0 end,
     updateHeartbeat = updateHookGuard and updateHookGuard.heartbeat or function() return 0 end,
+    protectedWrappers = updateHookGuard and updateHookGuard.protectedWrappers or function() return 0 end,
   }
 end
