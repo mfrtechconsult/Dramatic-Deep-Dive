@@ -2,8 +2,7 @@ name: Publish mod release
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
     paths:
       - dramatic_deep_dive/**
       - .github/workflows/release.yml
@@ -16,22 +15,24 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Install validators and preview renderer
         run: |
           sudo apt-get update
           sudo apt-get install -y lua5.4 librsvg2-bin
 
-      - name: Validate mod sources
+      - name: Validate standalone Deep Dive
         shell: bash
         run: |
           set -euo pipefail
           python3 -m json.tool dramatic_deep_dive/manifest.json >/dev/null
-          while IFS= read -r -d '' file; do
-            luac5.4 -p "$file"
-          done < <(find dramatic_deep_dive -type f -name '*.lua' -print0)
+          python3 dramatic_deep_dive/tools/audit_independence_contract.py dramatic_deep_dive
+          python3 dramatic_deep_dive/tools/audit_hm_contract.py dramatic_deep_dive
+          while IFS= read -r -d '' file; do luac5.4 -p "$file"; done \
+            < <(find dramatic_deep_dive -type f -name '*.lua' -print0)
+          lua5.4 dramatic_deep_dive/tools/test_compat_contract.lua dramatic_deep_dive/
+          lua5.4 dramatic_deep_dive/tools/test_voxel_providers.lua dramatic_deep_dive/
           lua5.4 dramatic_deep_dive/tools/validate_scene.lua
           lua5.4 dramatic_deep_dive/tools/validate_travel.lua
 

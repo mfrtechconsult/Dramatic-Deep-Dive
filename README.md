@@ -1,203 +1,77 @@
 # Dramatic Deep Dive
 
-**Dramatic Deep Dive** is a standalone Gen1Recomp underwater traversal mod. It owns HM06 DIVE, DIVE/SURFACE travel, underwater maps, continuous-depth swimming, Pokemon mounts and the 3D underwater environment itself.
+Dramatic Deep Dive is an **independent HM08 DIVE / free-depth underwater mod** for Gen1Recomp.
 
-Kanto Dive is now only source material for the historical map layouts. It is **not required at runtime** and conflicts with Dramatic Deep Dive to avoid duplicate HM/map systems.
+It owns its own gameplay stack:
 
-## Current version
+- `DIVE` and the stable item id `HM_DIVE`, presented as **HM08**;
+- its own progression and save state;
+- its own `DDD_*` underwater maps and DIVE/SURFACE links;
+- continuous depth, 1ST/3RD free swimming and seabed collision;
+- its own depth-based encounter ecology;
+- salvage, 3D reefs, ruins, caves, shipwrecks, abyss scenery and ambient life;
+- its own underwater mount selection and rider presentation.
 
-`0.4.0-alpha.3` — four-map standalone underwater Kanto with 3D setpieces, depth ecology, salvage and staged transitions.
+There is no cross-mod map handoff, event bridge, zone aliasing or ecology sharing with any other DIVE implementation.
 
-## Standalone underwater Kanto
+## HM08 DIVE
 
-- `DDD_ROUTE19_REEF_PASSAGE` — compact coral gate with a deep middle channel;
-- `DDD_ROUTE20_SEAFLOOR` — 100 x 18-cell open-sea map with shelves, a Seafoam rift, ruins, an explorable 3D shipwreck and hydrothermal vents;
-- `DDD_SEAFOAM_SUNKEN_CAVE` — enclosed crystal cavern with a rendered cave ceiling, physical stalactites and a deep blue-hole chamber;
-- `DDD_ROUTE21_ABYSS` — 20 x 90-cell vertical exploration map south of Pallet Town with reefs, kelp, ruins and the central abyss.
+Deep Dive can provide the complete DIVE contract by itself. If the generic `DIVE` move or `HM_DIVE` record already exists in the game data, Deep Dive reuses the same stable ids rather than creating a duplicate record, but it performs no mod discovery to determine who registered them.
 
-Route 20 and Seafoam form one continuous submerged zone. Entering Seafoam does not reset the Deep Dive session: depth and the player's original pre-dive camera mode survive the internal map warp.
+The visible machine number is always **HM08**.
 
-## DIVE and SURFACE transitions
+A historical Deep Dive receipt key from earlier alpha saves is retained internally so existing Deep Dive saves keep their progression. It is not used for presentation.
 
-The field moves are no longer exposed as raw instant warps.
+## Underwater content
 
-### DIVE
+Deep Dive keeps its complete native underwater content:
 
-1. the field-move text closes;
-2. controls lock for a short water-boundary transition;
-3. the surface view fades into a procedural blue/bubble overlay;
-4. the underwater map loads;
-5. the mount appears at the top of the water column;
-6. it automatically descends toward the area's authored entry depth;
-7. control returns to the player.
+- `DDD_ROUTE19_REEF_PASSAGE`;
+- `DDD_ROUTE20_SEAFLOOR`;
+- `DDD_SEAFOAM_SUNKEN_CAVE`;
+- `DDD_ROUTE21_ABYSS`.
 
-### SURFACE
+All travel, depth volumes, scenery, setpieces, encounters and salvage for those maps are owned by this project.
 
-1. the mount is commanded toward `minDepth`;
-2. it physically ascends through the existing 3D water column;
-3. the boundary fade hides the surface-map warp;
-4. the original pre-dive Voxel camera mode is restored;
-5. the player returns to normal Surf.
+## Crystal 251
 
-Internal underwater warps such as Route 20 -> Seafoam never play this transition.
+Crystal 251 is optional. When installed, Deep Dive additively enables DIVE for the canonical Generation II R/S/E-compatible species without replacing Crystal's complete TM/HM lists.
 
-## Route 21 districts
+Supported field-move compatibility:
 
-- **PALLET REEF** — bright branching coral and a natural rock arch;
-- **KELP CATHEDRAL** — tall kelp fields and rock spires;
-- **SUNKEN COURT** — gates, broken walls, columns, shrine and crystal growths;
-- **ABYSSAL GATE** — the darkest/deepest canyon, giant ruined gateway, fossil ribs and hydrothermal vents;
-- **SOUTHERN GARDENS** — coral/kelp ecosystem and southern ruins.
+`TOTODILE`, `CROCONAW`, `FERALIGATR`, `CHINCHOU`, `LANTURN`, `MARILL`, `AZUMARILL`, `POLITOED`, `WOOPER`, `QUAGSIRE`, `SLOWKING`, `QWILFISH`, `REMORAID`, `OCTILLERY`, `MANTINE`, `KINGDRA`, `SUICUNE`, `LUGIA`.
 
-## Route 20 districts
+Mount suitability is intentionally separate. Small or visually unsuitable DIVE users are not automatically used as rideable underwater mounts.
 
-- **WEST CORAL SHELF** — wide reef shelf, kelp and ruined columns;
-- **SEAFOAM RIFT** — a deep 250+ depth trench with an abyss gate, crystal growths and smoker field;
-- **CURRENT GARDENS** — eastern coral/kelp shelf containing a large wrecked ship and additional ruins.
+## Renderer compatibility
 
-## Seafoam
+Deep Dive supports either:
 
-Seafoam's Deep Dive version has:
+- Battle Art Voxel Fork; or
+- Dramaless Shape.
 
-- a dark overhead cave ceiling;
-- 28 deterministic stalactites extending into the swimming column;
-- physical depth-aware stalactite collision;
-- crystal clusters and rock formations;
-- a submerged ruin ring and shrine;
-- a deeper **BLUE HOLE** chamber reaching roughly 188 usable depth.
+`VoxelProvider.lua` discovers the installed renderer through its public library API and supplies the same provider to free movement, underwater lighting and custom 3D geometry.
 
-## Living 3D environment
+Dramatic Sky Ride remains optional. Deep Dive does not depend on it for mounts. Deep Dive does not add a `Player:draw()` path; its pose wrapper delegates exactly once to the existing pose chain so Sky Ride can coexist safely.
 
-The environment is generated as real depth-tested Voxel geometry rather than screen-space decoration:
+## Mounts
 
-- branching coral gardens;
-- segmented kelp forests;
-- stepped rock spires and arches;
-- ancient gates, walls, columns and shrines;
-- crystal fields;
-- animated bubble vents;
-- animated fish schools in world space;
-- light shafts from the surface;
-- depth-aware blue/teal lighting;
-- a full block-built shipwreck;
-- hydrothermal chimney fields;
-- cave ceiling and stalactites;
-- fossil rib-cage setpiece.
+The active party is searched for a Pokémon that:
 
-Large structures have vertical collision. A ruin can block you at its own height while remaining passable if you swim over it.
+1. knows `DIVE`;
+2. is considered visually suitable by Deep Dive's mount policy;
+3. has an available PokePC follower sprite.
 
-## Depth ecology
-
-Wild Pokemon are selected from the player's **actual continuous depth**, not only the current map id. Deep Dive substitutes the encounter table at the moment Gen1Recomp performs `Encounter.roll`; Gen1Recomp still owns its normal RNG and battle startup.
-
-Examples:
-
-- Route 19 changes from a Horsea/Krabby/Staryu reef population to stronger Seadra/Tentacruel/Gyarados encounters in the channel;
-- Route 20 has separate **coral shelf**, **open blue** and **Seafoam rift** ecologies;
-- Seafoam changes from Seel/Shellder/Slowpoke in the upper gallery to Dewgong/Cloyster and stronger Pokemon in the Blue Hole;
-- Route 21 has **sunlit**, **twilight** and **abyssal** water layers. The deepest layer has a lower encounter rate but stronger Pokemon.
-
-## Salvage exploration
-
-Nine persistent salvage caches are hidden around suspicious underwater landmarks. They are not ordinary 2D item balls: every cache has a real world X/Z position and an authored continuous depth.
-
-When close enough horizontally, the HUD reports:
-
-- `SIGNAL BELOW` if the cache is deeper;
-- `SIGNAL ABOVE` if it is higher;
-- `A  SALVAGE` when the mount is within the collection depth window.
-
-Rewards currently include Ultra Balls, Nuggets, Max Revives, Max Potion, PP Ups and Rare Candy. Retrieval uses Gen1Recomp's native bag logic; a full bag leaves the cache untouched for a later retry.
-
-Caches currently exist in the Route 19 channel, Route 20 west shelf/rift/shipwreck, both Seafoam chambers, Sunken Court, Abyssal Gate and the Route 21 fossil area.
-
-## Performance
-
-Static reefs, ruins and setpieces remain normal batched Voxel meshes. Animated ambience receives a lightweight camera-distance LOD:
-
-- distant fish schools are skipped beyond the useful camera radius;
-- distant bubble vents are skipped independently;
-- static geometry does not pop in/out because of this LOD.
-
-The current LOD statistics are also exposed through `mod.exports.ambientLODStats()` for profiling during development.
-
-## Depth ranges
-
-| Map | Approx. usable range | Identity |
-| --- | ---: | --- |
-| Route 19 Reef Passage | 20-150 | compact reef channel |
-| Route 20 Seafloor | 24-253 | wide shelves + deep Seafoam rift |
-| Seafoam Sunken Cave | 36-188 | enclosed cavern + blue hole |
-| Route 21 Abyss | 24-222 | long canyon + deep central abyss |
+PokePC Followers Voxel Merge supplies the mount sprite assets. The normal following Pokémon is suspended while submerged so the mount is not duplicated by a follower at the player's side.
 
 ## Controls
 
-- normal Battle Art Voxel Fork free movement in 1ST/3RD;
+- free movement: renderer 1ST/3RD controls;
 - `R2` / `Page Up`: ascend;
-- `L2` / `Page Down`: dive deeper;
-- hold `B`: smooth swim boost;
-- `A`: salvage when `A  SALVAGE` is shown;
-- `SURFACE`: party submenu action inside an authored surface window.
-
-## Mount and followers
-
-The first party Pokemon that knows DIVE is used as the underwater mount through PokePC follower art. The trainer is rendered separately in third person and hidden automatically in first person.
-
-Normal followers are explicitly removed from overworld entity/NPC lists for the whole submerged session, so the active follower does not appear beside the DIVE mount.
-
-## Map previews
-
-Every release generates **real-data map previews** from the actual Lua map, depth-volume, scene and setpiece definitions. These are not concept art.
-
-Release assets:
-
-- `DDD_ROUTE19_REEF_PASSAGE.png`
-- `DDD_ROUTE20_SEAFLOOR.png`
-- `DDD_SEAFOAM_SUNKEN_CAVE.png`
-- `DDD_ROUTE21_ABYSS.png`
-
-The previews display the real base-map blocks, depth zones, SURFACE regions, 3D landmarks, named districts and major setpieces. Narrow maps are centered on a phone-readable canvas.
-
-## Dependencies
-
-- Gen1Recomp with Mod API 2;
-- Battle Art Voxel Fork `>=1.7.6 <2.0.0`;
-- PokePC Followers Voxel Merge.
-
-Dramatic Sky Ride remains optional. Kanto Dive must not be installed simultaneously because Dramatic Deep Dive replaces its HM06/travel responsibilities.
-
-## Installation
-
-Install the complete `dramatic_deep_dive` folder into Gen1Recomp's `mods` directory:
-
-`mods/dramatic_deep_dive/manifest.json`
-
-GitHub releases include a ready-to-install ZIP whose root is `dramatic_deep_dive/`.
-
-## Progression
-
-HM06 is owned by this mod. The Cinnabar Lab scientist progression is retained for now: after the Volcano Badge, he gives HM06 DIVE without replacing the vanilla TM35 interaction.
+- `L2` / `Page Down`: descend;
+- hold `B`: swim boost;
+- `SURFACE`: return through Deep Dive's own authored surface links.
 
 ## Validation
 
-The release workflow rejects a build if:
-
-- `manifest.json` is invalid or a Lua source fails syntax validation;
-- one of the four maps is missing its depth volume or scene;
-- map ids/indices or block counts are inconsistent;
-- SwimVolumes or scene objects exceed map boundaries;
-- the authored minimum depths regress;
-- districts leave gaps in their main exploration axis;
-- the Seafoam ceiling enters the legal swimming ceiling;
-- a DIVE arrival is outside its authored SurfaceZone;
-- an internal underwater warp leaves the DDD map graph;
-- depth encounter bands leave a legal depth uncovered or lose their ten vanilla slots;
-- a salvage cache lies outside a SwimVolume or below its local seafloor.
-
-The same workflow generates the four map previews and attaches their PNGs to the GitHub release.
-
-## Project direction
-
-The old flat DIVE implementation is no longer the target. Dramatic Deep Dive is being developed as the underwater counterpart to Dramatic Sky Ride: continuous free movement, meaningful vertical traversal, mount/rider presentation and authored 3D spaces.
-
-The next stage is primarily real-hardware tuning: camera/mount feel, transition timing, visual density and performance. Additional map-specific interactions can continue to be authored without changing the core traversal architecture.
+Release CI validates Deep Dive without checking any other DIVE project. Separate checks cover Crystal 251, Battle Art Voxel Fork, Dramaless Shape and Dramatic Sky Ride interoperability where relevant.

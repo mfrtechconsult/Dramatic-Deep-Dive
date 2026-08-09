@@ -1,0 +1,52 @@
+name: Deep Dive compatibility matrix
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  standalone-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Lua
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lua5.4
+      - name: Test autonomous HM08 and Crystal contracts
+        run: |
+          python3 dramatic_deep_dive/tools/audit_independence_contract.py dramatic_deep_dive
+          python3 dramatic_deep_dive/tools/audit_hm_contract.py dramatic_deep_dive
+          lua5.4 dramatic_deep_dive/tools/test_compat_contract.lua dramatic_deep_dive/
+          lua5.4 dramatic_deep_dive/tools/test_voxel_providers.lua dramatic_deep_dive/
+
+  crystal-readiness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: Deftones565/gen1recomp-mod-crystal-251
+          path: vendor/crystal-251
+      - name: Verify Crystal species/content contract
+        run: |
+          python3 dramatic_deep_dive/tools/audit_crystal_contract.py vendor/crystal-251
+
+  renderer-matrix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: absol89/DramaticShapeVoxelMod
+          ref: feature/battle-art
+          path: vendor/battle-art
+      - uses: actions/checkout@v4
+        with:
+          repository: artyrambles/DRAMALESS_SHAPE
+          path: vendor/dramaless-shape
+      - name: Audit both supported voxel providers
+        run: |
+          python3 dramatic_deep_dive/tools/audit_voxel_contract.py dramatic_deep_dive \
+            BATTLE_ART_VOXEL_FORK=vendor/battle-art \
+            DRAMALESS_SHAPE=vendor/dramaless-shape
