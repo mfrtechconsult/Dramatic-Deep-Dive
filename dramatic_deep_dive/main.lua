@@ -178,5 +178,7 @@ return function(mod)
     hookRecoveries = updateHookGuard and updateHookGuard.recoveries or function() return 0 end,
     updateHeartbeat = updateHookGuard and updateHookGuard.heartbeat or function() return 0 end,
     protectedWrappers = updateHookGuard and updateHookGuard.protectedWrappers or function() return 0 end,
+    rootUpdate = updateHookGuard and updateHookGuard.rootUpdate or function() return nil end,
+    ownsUpdate = updateHookGuard and updateHookGuard.ownsUpdate or function() return false end,
   }
 end
