@@ -60,6 +60,8 @@ function UpdateHookGuard.install(mod, controller)
       recoveries = function() return 0 end,
       heartbeat = function() return 0 end,
       protectedWrappers = function() return #(chain or {}) end,
+      rootUpdate = function() return rootUpdate end,
+      ownsUpdate = function() return false end,
     }
   end
 
@@ -80,6 +82,29 @@ function UpdateHookGuard.install(mod, controller)
 
   bindExternal(initialExternal)
 
+  -- If Sky Ride is installed, its guard owns the DSR -> external boundary.
+  -- Ask it to compose around the CURRENT displaced handler first, then put
+  -- the complete DDD chain above the returned DSR root. This preserves the
+  -- full stack as DDD -> DSR -> Wilds/other instead of making either sibling
+  -- guard overwrite the other's chain.
+  local function composeExternal(current, reason)
+    if not (mod and mod.find) then return current end
+    local okFind, handle = pcall(mod.find, mod, "DRAMATIC_SKY_RIDE")
+    local compat = okFind and handle and handle.exports
+      and handle.exports.wildsCompatibility or nil
+    local compose = compat and compat.composeAround
+    if type(compose) ~= "function" then return current end
+
+    local okCompose, combined = pcall(compose, current,
+      reason or "Deep Dive cooperative recovery")
+    if okCompose and type(combined) == "function" then return combined end
+    if not okCompose and mod.log then
+      mod.log:warn("Sky Ride cooperative update composition failed: %s",
+        tostring(combined))
+    end
+    return current
+  end
+
   local function recover(reason)
     local current = OverworldState.update
     if current == rootUpdate then return true end
@@ -87,9 +112,12 @@ function UpdateHookGuard.install(mod, controller)
 
     -- Restoring an intermediate DDD wrapper only needs the complete root put
     -- back on top. For a genuinely external handler (Wilds or another mod),
-    -- retarget only DDD's deepest external edge around that CURRENT function.
+    -- preserve Sky Ride when available, then retarget DDD's deepest external
+    -- edge around that combined chain.
+    local nextUpdate = current
     if not chainSet[current] then
-      if not bindExternal(current) then return false end
+      nextUpdate = composeExternal(current, reason)
+      if not bindExternal(nextUpdate) then return false end
     end
     OverworldState.update = rootUpdate
     recoveries = recoveries + 1
@@ -139,6 +167,8 @@ function UpdateHookGuard.install(mod, controller)
     recoveries = function() return recoveries end,
     heartbeat = function() return heartbeat end,
     protectedWrappers = function() return #(chain or {}) end,
+    rootUpdate = function() return rootUpdate end,
+    ownsUpdate = function(fn) return chainSet[fn] == true end,
   }
 end
 
