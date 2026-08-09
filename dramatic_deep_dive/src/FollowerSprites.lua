@@ -45,19 +45,25 @@ function FollowerSprites:_publicDefinition(species)
   for _, id in ipairs(PUBLIC_PROVIDER_IDS) do
     local ex = self:_exports(id)
     if ex and type(ex.resolveFollowerSprite) == "function" then
-      -- First preserve the user's active style. If Wilds is configured to its
-      -- static Pokédex style, retry its built-in walking follower style so a
-      -- rideable 6-frame mount is still available without requiring PokéPC.
-      local requests = { false }
-      if id == WILDS_MOD_ID then requests[#requests + 1] = "followers" end
-      for _, style in ipairs(requests) do
+      -- Deep Dive is underwater, so prefer a provider's explicit water sheet.
+      -- If none exists, keep the provider's current land style. Wilds' static
+      -- Pokédex style gets one final retry with its built-in follower/GSC
+      -- walking sheets so Wilds-only installs still have a rideable mount.
+      local requests = {
+        { surface = "water" },
+        { surface = "land" },
+      }
+      if id == WILDS_MOD_ID then
+        requests[#requests + 1] = { surface = "land", style = "followers" }
+      end
+      for _, request in ipairs(requests) do
         local opts = {
           species = species,
-          surface = "land",
+          surface = request.surface,
           role = "mount",
           game = Game,
         }
-        if style then opts.style = style end
+        if request.style then opts.style = request.style end
         local okDef, def = pcall(ex.resolveFollowerSprite, opts)
         local frames = def and tonumber(def.frames) or 0
         if okDef and def and def.image and frames >= 6 then
