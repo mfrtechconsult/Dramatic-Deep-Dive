@@ -26,6 +26,7 @@ return function(mod)
   local VolumeRegistry = loadModule(mod, "src/VolumeRegistry.lua")
   local FollowerSprites = loadModule(mod, "src/FollowerSprites.lua")
   local FollowerBridge = loadModule(mod, "src/FollowerBridge.lua")
+  local UpdateHookGuard = loadModule(mod, "src/UpdateHookGuard.lua")
   local DiveTravel = loadModule(mod, "src/DiveTravel.lua")
   local Progression = loadModule(mod, "src/Progression.lua")
   local DeepDive = loadModule(mod, "src/DeepDive.lua")
@@ -47,8 +48,8 @@ return function(mod)
   local salvageDefinitions = loadModule(mod, "data/salvage.lua")
 
   if not (Content and VoxelProvider and Crystal251Compat and MountPolicy
-      and VolumeRegistry and FollowerSprites and FollowerBridge and DiveTravel
-      and Progression and DeepDive and SceneDecor and SetpieceDecor
+      and VolumeRegistry and FollowerSprites and FollowerBridge and UpdateHookGuard
+      and DiveTravel and Progression and DeepDive and SceneDecor and SetpieceDecor
       and SceneGameplay and UnderwaterLighting and SubmergedTransitionGuard
       and DiveTransition and DepthEncounters and Salvage and AmbientLOD
       and VoxelRenderer and volumeDefinitions and diveDefinitions
@@ -136,6 +137,7 @@ return function(mod)
   transitionGuard:install()
   Progression.install(mod)
   controller:install()
+  local updateHookGuard = UpdateHookGuard.install(mod, controller)
   voxelRenderer:install()
   underwaterLighting:install()
   sceneGameplay:install()
@@ -168,4 +170,11 @@ return function(mod)
     return registry:register(id, definition, owner or "external")
   end
   mod.exports.requestDepth = function(depth) return controller:requestDepth(depth) end
+  mod.exports.wildsCompatibility = {
+    wildsId = "overworld_wild_spawns",
+    hookGuardReady = updateHookGuard and updateHookGuard.ready == true,
+    ensureUpdateHook = updateHookGuard and updateHookGuard.ensure or nil,
+    hookRecoveries = updateHookGuard and updateHookGuard.recoveries or function() return 0 end,
+    updateHeartbeat = updateHookGuard and updateHookGuard.heartbeat or function() return 0 end,
+  }
 end
