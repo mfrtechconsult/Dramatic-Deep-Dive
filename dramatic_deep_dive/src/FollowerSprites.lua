@@ -1,4 +1,3 @@
-local Json = require("src.link.Json")
 local Assets = require("src.render.Assets")
 local SpriteRenderer = require("src.render.SpriteRenderer")
 local Game = require("src.core.Game")
@@ -25,6 +24,14 @@ local FILE_PROVIDER_IDS = {
 local function fileExists(path)
   return love and love.filesystem and love.filesystem.getInfo
     and love.filesystem.getInfo(path) ~= nil
+end
+
+local function manifestId(raw)
+  if type(raw) ~= "string" then return nil end
+  -- Mod ids are simple JSON strings. This fallback only needs the top-level id
+  -- and deliberately avoids importing src.link.Json (which is network-gated
+  -- by Gen1Recomp's dev permission tripwire).
+  return raw:match('"id"%s*:%s*"([^"\\]+)"')
 end
 
 local function setNearest(image)
@@ -96,8 +103,8 @@ function FollowerSprites:pathForDex(dex)
         local asset = root .. "/assets/sprites/" .. filename
         if fileExists(asset) then
           local raw = love.filesystem.read(root .. "/manifest.json")
-          local decoded = raw and Json.decode(raw) or nil
-          if decoded and FILE_PROVIDER_IDS[decoded.id] then return asset end
+          local id = manifestId(raw)
+          if id and FILE_PROVIDER_IDS[id] then return asset end
           fallback = fallback or asset
         end
       end
