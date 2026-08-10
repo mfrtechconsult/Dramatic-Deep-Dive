@@ -4,6 +4,14 @@
 local root = arg and arg[0] and arg[0]:match("^(.*)/tools/") or "."
 package.path = root .. "/?.lua;" .. root .. "/?/init.lua;" .. package.path
 
+-- The generated engine-facing encounter table itself must be inert. Deep Dive
+-- supplies standalone depth-band rates dynamically only when Wilds is absent.
+local generatorFile = assert(io.open(root .. "/src/SeabedGenerator.lua", "r"))
+local generatorSource = generatorFile:read("*a")
+generatorFile:close()
+assert(generatorSource:find("grass = { rate = 0, slots = first.slots }", 1, true),
+  "generated underwater vanilla encounter record must have permanent rate 0")
+
 local game = {
   overworld = { map = { id = "DDD_SEABED_ROUTE_TEST" } },
   mods = { exports = { overworld_wild_spawns = {} } },
