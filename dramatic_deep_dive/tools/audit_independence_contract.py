@@ -8,6 +8,7 @@ allowed_required=set()
 allowed_optional={
     "PokePCFollowers_VoxelMerge",
     "overworld_wild_spawns",
+    "wild_skies",
     "DRAMALESS_SHAPE",
     "CRYSTAL_251",
     "DRAMATIC_SKY_RIDE@>=0.1.1 <2.0.0",
