@@ -125,7 +125,9 @@ function SeabedGenerator:volumeDefinition(entry)
     seabedClearance = p.seabedClearance or 8,
     cellRuns = entry.cellRuns,
     depthRuns = entry.depthRuns,
-    surfaceRuns = entry.cellRuns,
+    -- The player may swim below an inferred bridge/pier cell, but SURFACE is
+    -- only valid where the original Kanto map is actual surfable water.
+    surfaceRuns = entry.surfaceCellRuns or entry.cellRuns,
     widthCells = entry.width,
     heightCells = entry.height,
     connectedEdges = connectedEdges,
@@ -135,7 +137,10 @@ end
 
 function SeabedGenerator:diveZone(entry)
   local links = {}
-  for y, runs in pairs(entry.cellRuns or {}) do
+  -- DIVE links represent surface entry/exit points, so they intentionally use
+  -- the real surface-water mask rather than the broader hydrology mask used by
+  -- the underwater collision map.
+  for y, runs in pairs(entry.surfaceCellRuns or entry.cellRuns or {}) do
     for runIndex, run in ipairs(runs) do
       links[#links + 1] = {
         id = string.format("atlas_%s_%d_%d", entry.id:lower(), y, runIndex),
