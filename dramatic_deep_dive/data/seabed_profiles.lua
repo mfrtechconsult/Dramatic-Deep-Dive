@@ -6,6 +6,8 @@ return {
 
   profiles = {
     coastal = {
+      -- One surface movement cell becomes a 2x2 underwater navigation area.
+      spaceScale = 2,
       surfaceHeight = 680, minDepth = 18, defaultDepth = 70,
       nearFloor = 64, depthPerCell = 27, maxFloor = 520, seabedClearance = 9,
       floorColor = { 0.17, 0.30, 0.29 },
@@ -13,6 +15,9 @@ return {
       music = "Music_Dungeon2", ecology = "ocean",
     },
     ocean = {
+      -- Open sea deliberately uses 3x horizontal scale (9x swim area) so the
+      -- Kanto ocean reads as a broad body of water instead of a route corridor.
+      spaceScale = 3,
       surfaceHeight = 760, minDepth = 22, defaultDepth = 90,
       nearFloor = 80, depthPerCell = 34, maxFloor = 700, seabedClearance = 11,
       floorColor = { 0.12, 0.25, 0.29 },
@@ -20,6 +25,7 @@ return {
       music = "Music_Dungeon2", ecology = "ocean",
     },
     harbor = {
+      spaceScale = 2,
       surfaceHeight = 610, minDepth = 16, defaultDepth = 58,
       nearFloor = 52, depthPerCell = 18, maxFloor = 360, seabedClearance = 8,
       floorColor = { 0.22, 0.27, 0.25 },
@@ -27,6 +33,8 @@ return {
       music = "Music_Dungeon2", ecology = "harbor",
     },
     volcanic = {
+      -- Cinnabar's offshore shelf gets the same broad scale as open ocean.
+      spaceScale = 3,
       surfaceHeight = 760, minDepth = 24, defaultDepth = 96,
       nearFloor = 88, depthPerCell = 38, maxFloor = 740, seabedClearance = 12,
       floorColor = { 0.10, 0.15, 0.17 },
@@ -34,6 +42,8 @@ return {
       vents = true, music = "Music_Dungeon2", ecology = "volcanic",
     },
     cave = {
+      -- Submerged caverns are roomier without losing their enclosed identity.
+      spaceScale = 2,
       surfaceHeight = 580, minDepth = 22, defaultDepth = 78,
       nearFloor = 68, depthPerCell = 26, maxFloor = 540, seabedClearance = 9,
       floorColor = { 0.10, 0.17, 0.22 },
@@ -41,6 +51,9 @@ return {
       cave = true, music = "Music_Dungeon3", ecology = "cave",
     },
     freshwater = {
+      -- Rivers/ponds keep Kanto's original scale so small inland water remains
+      -- believable rather than becoming ocean-sized below the surface.
+      spaceScale = 1,
       surfaceHeight = 520, minDepth = 12, defaultDepth = 42,
       nearFloor = 36, depthPerCell = 14, maxFloor = 270, seabedClearance = 7,
       floorColor = { 0.24, 0.28, 0.21 },
@@ -48,6 +61,7 @@ return {
       music = "Music_Dungeon2", ecology = "freshwater",
     },
     marsh = {
+      spaceScale = 1,
       surfaceHeight = 500, minDepth = 10, defaultDepth = 34,
       nearFloor = 28, depthPerCell = 11, maxFloor = 200, seabedClearance = 6,
       floorColor = { 0.25, 0.27, 0.18 },
