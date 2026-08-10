@@ -53,10 +53,14 @@ local mapsBase = {
     _water = waterRect(4, 4),
   },
 }
+-- Keep some non-water coast inside each map and deliberately break one cell
+-- of the east/west border pair. A map connection must not visually open the
+-- whole edge when only some of its water cells actually connect.
 mapsBase.ROUTE_TEST_A._water[key(0, 0)] = nil
 mapsBase.ROUTE_TEST_A._water[key(0, 1)] = nil
 mapsBase.ROUTE_TEST_B._water[key(3, 2)] = nil
 mapsBase.ROUTE_TEST_B._water[key(3, 3)] = nil
+mapsBase.ROUTE_TEST_B._water[key(0, 0)] = nil
 
 local maps = registry(mapsBase)
 local tilesets = registry({ OVERWORLD = { id = "OVERWORLD", waterTiles = { 0x14 } } })
@@ -72,11 +76,11 @@ local VolumeRegistry = dofile(root .. "/src/VolumeRegistry.lua")
 
 local atlas = Atlas.new(mod, profiles):build()
 assert(atlas.stats.maps == 2, "two water maps should be scanned")
-assert(atlas.stats.waterCells == 28, "all synthetic water cells should be counted")
+assert(atlas.stats.waterCells == 27, "all synthetic water cells should be counted")
 assert(atlas.stats.components == 1, "the east/west seam should make one connected water body")
 assert(atlas.stats.seams == 1, "reciprocal map edges should count as one underwater seam")
-assert(atlas:surface("ROUTE_TEST_A").seams.east.waterCells == 4, "all four east edge cells connect")
-assert(atlas:surface("ROUTE_TEST_B").seams.west.waterCells == 4, "reciprocal seam should match")
+assert(atlas:surface("ROUTE_TEST_A").seams.east.waterCells == 3, "only three east edge cells connect")
+assert(atlas:surface("ROUTE_TEST_B").seams.west.waterCells == 3, "reciprocal partial seam should match")
 local seamA = atlas:surface("ROUTE_TEST_A").floorDepth[key(3, 2)]
 local seamB = atlas:surface("ROUTE_TEST_B").floorDepth[key(0, 2)]
 assert(seamA == seamB, "connected maps must reconcile seabed depth at the seam")
@@ -89,6 +93,12 @@ assert(mapA.connections.east.map == mapB.id, "underwater east seam must target g
 assert(mapB.connections.west.map == mapA.id, "underwater west seam must be reciprocal")
 assert(#mapA.blocks == mapA.width * mapA.height, "generated block count must match dimensions")
 for _, block in ipairs(mapA.blocks) do assert(block >= 16 and block <= 31, "mask blocks must stay in 16..31") end
+
+local volumeA = generated.volumes["atlas:ROUTE_TEST_A"]
+assert(volumeA.connectedEdgeCells.east[key(3, 1)] == true,
+  "an actual water-to-water border cell must stay open")
+assert(volumeA.connectedEdgeCells.east[key(3, 0)] ~= true,
+  "an unmatched water border cell must remain visually closed")
 
 local volumes = VolumeRegistry.new({})
 for id, definition in pairs(generated.volumes) do
@@ -105,7 +115,7 @@ assert(center >= near, "depth must not get shallower toward interior water")
 local zone = generated.dives["atlas:ROUTE_TEST_A"]
 local covered = 0
 for _, link in ipairs(zone.links) do covered = covered + link.width * link.height end
-assert(covered == 14, "DIVE row-runs must cover every water cell exactly once")
+assert(covered == 14, "DIVE row-runs must cover every surface water cell exactly once")
 
 print(string.format(
   "Kanto water atlas OK: %d maps, %d water cells, %d component, %d seam",
