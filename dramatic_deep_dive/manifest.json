@@ -1,7 +1,7 @@
 {
   "id": "DRAMATIC_DEEP_DIVE",
   "name": "Dramatic Deep Dive",
-  "version": "0.4.0-alpha.15",
+  "version": "0.4.0-alpha.16",
   "api": 2,
   "entry": "main.lua",
   "profile": "content",
@@ -24,6 +24,6 @@
     "filesystem"
   ],
   "affects_link": true,
-  "description": "Full Dramatic Deep Dive runtime with living underwater Pokemon scaled dynamically from Pokedex height, ocean-scale swim spaces, stable Wilds/Sky compatibility, overworld-only encounters when Wilds of Kanto is active, and blue abyss/surface boundaries.",
+  "description": "Full Dramatic Deep Dive runtime with Pokedex-scaled living underwater Pokemon, forgiving 3D overworld interception in Wilds mode, ocean-scale swim spaces, stable Wilds/Sky compatibility, and blue abyss/surface boundaries.",
   "github": "mfrtechconsult/Dramatic-Deep-Dive"
 }
