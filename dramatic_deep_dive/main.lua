@@ -87,8 +87,6 @@ return function(mod)
   })
   if not johtoWater or not HMForgetGuard.install(mod) then return end
 
-  -- DIVE keeps its existing presentation unchanged. These one-time hints are
-  -- only for the two newly introduced Crystal field mechanics.
   HMShowcase.install(mod, {
     ROUTE_20 = {
       id = "hm06_whirlpool_route20",
@@ -171,35 +169,22 @@ return function(mod)
   local ambientLOD = AmbientLOD.new(mod, sceneDecor)
 
   controller.travel = travel
-
-  -- Wilds of Kanto can replace the overworld update chain while a staged
-  -- transition is waiting for its next frame. In that environment use the
-  -- direct, engine-native warp path; Deep Dive activation still happens from
-  -- map/entered events, but no input lock depends on another update tick.
-  local wildsInstalled = false
-  if mod.find then
-    local okFind, handle = pcall(mod.find, mod, "overworld_wild_spawns")
-    wildsInstalled = okFind and handle ~= nil
-  end
-  if not wildsInstalled then travel:setTransition(diveTransition) end
   voxelRenderer:setController(controller)
 
+  -- Diagnostic travel-only mode. Keep the proven Kanto-style field-move path
+  -- and authored underwater maps, but do not activate the advanced Deep Dive
+  -- runtime yet. This isolates crashes caused by Voxel/free-depth/follower
+  -- activation from map loading and warp/session handling.
   travel:install()
-  transitionGuard:install()
   Progression.install(mod)
-  controller:install()
-  voxelRenderer:install()
-  underwaterLighting:install()
-  sceneGameplay:install()
-  depthEncounters:install()
-  ambientLOD:install()
-  salvage:install()
-  diveTransition:install()
-  local updateHookGuard = UpdateHookGuard.install(mod, controller)
+  local updateHookGuard = nil
 
   mod.exports.voxelProvider = function() return voxelProvider:id(), voxelProvider:pipelineId() end
-  mod.exports.isActive = function() return controller:isActive() end
-  mod.exports.isUnderwater = function() return controller:isActive() end
+  mod.exports.isActive = function() return false end
+  mod.exports.isUnderwater = function()
+    local state = travel:getSession()
+    return state and state.active == true or false
+  end
   mod.exports.currentDepth = function() return controller:currentDepth() end
   mod.exports.targetDepth = function() return controller:targetDepth() end
   mod.exports.currentVolume = function() return controller:currentVolume() end
@@ -217,7 +202,7 @@ return function(mod)
     return band and band.id or nil, mapId
   end
   mod.exports.ambientLODStats = function() return ambientLOD:stats() end
-  mod.exports.isTransitioning = function() return diveTransition:isActive() end
+  mod.exports.isTransitioning = function() return false end
   mod.exports.salvageRemaining = function(mapId) return salvage:remaining(mapId) end
   mod.exports.registerVolume = function(id, definition, owner)
     return registry:register(id, definition, owner or "external")
@@ -231,12 +216,12 @@ return function(mod)
 
   mod.exports.wildsCompatibility = {
     wildsId = "overworld_wild_spawns",
-    hookGuardReady = updateHookGuard and updateHookGuard.ready == true,
-    ensureUpdateHook = updateHookGuard and updateHookGuard.ensure or nil,
-    hookRecoveries = updateHookGuard and updateHookGuard.recoveries or function() return 0 end,
-    updateHeartbeat = updateHookGuard and updateHookGuard.heartbeat or function() return 0 end,
-    protectedWrappers = updateHookGuard and updateHookGuard.protectedWrappers or function() return 0 end,
-    rootUpdate = updateHookGuard and updateHookGuard.rootUpdate or function() return nil end,
-    ownsUpdate = updateHookGuard and updateHookGuard.ownsUpdate or function() return false end,
+    hookGuardReady = false,
+    ensureUpdateHook = nil,
+    hookRecoveries = function() return 0 end,
+    updateHeartbeat = function() return 0 end,
+    protectedWrappers = function() return 0 end,
+    rootUpdate = function() return nil end,
+    ownsUpdate = function() return false end,
   }
 end
