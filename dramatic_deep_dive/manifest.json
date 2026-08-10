@@ -1,7 +1,7 @@
 {
   "id": "DRAMATIC_DEEP_DIVE",
   "name": "Dramatic Deep Dive",
-  "version": "0.5.0-alpha.1",
+  "version": "0.5.0-alpha.2",
   "api": 2,
   "entry": "main.lua",
   "profile": "content",
@@ -24,6 +24,6 @@
     "filesystem"
   ],
   "affects_link": true,
-  "description": "Dramatic Deep Dive 0.5.0 development: generated full-Kanto seabed atlas, seamless underwater map connections, continuous shore-derived depth, living Pokedex-scaled Pokemon, Wilds/Sky compatibility and HM08 DIVE.",
+  "description": "Full-Kanto Deep Dive preview: every detected Kanto water cell gets a coherent generated seabed, seamless underwater route connections, cave/harbor portals, biome-aware geology and lighting, living Pokedex-scaled Pokemon, salvage, Wilds/Sky compatibility and HM08 DIVE. Surface DIVE masking is intentionally disabled because all water is diveable.",
   "github": "mfrtechconsult/Dramatic-Deep-Dive"
 }
