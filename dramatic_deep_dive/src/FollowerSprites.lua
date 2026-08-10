@@ -1,11 +1,20 @@
-local Json = require("src.link.Json")
 local Assets = require("src.render.Assets")
 local SpriteRenderer = require("src.render.SpriteRenderer")
+local Game = require("src.core.Game")
 
 local FollowerSprites = {}
 FollowerSprites.__index = FollowerSprites
 
-local PROVIDER_IDS = {
+local WILDS_MOD_ID = "overworld_wild_spawns"
+local PUBLIC_PROVIDER_IDS = {
+  WILDS_MOD_ID,
+  "PokePCFollowers_VoxelMerge",
+  "pokepcfollowers",
+  "FOLLOWERS_EX",
+  "followers_ex",
+}
+
+local FILE_PROVIDER_IDS = {
   PokePCFollowers_VoxelMerge = true,
   pokepcfollowers = true,
   FOLLOWERS_EX = true,
@@ -17,12 +26,67 @@ local function fileExists(path)
     and love.filesystem.getInfo(path) ~= nil
 end
 
+local function manifestId(raw)
+  if type(raw) ~= "string" then return nil end
+  -- Mod ids are simple JSON strings. This fallback only needs the top-level id
+  -- and deliberately avoids importing src.link.Json (which is network-gated
+  -- by Gen1Recomp's dev permission tripwire).
+  return raw:match('"id"%s*:%s*"([^"\\]+)"')
+end
+
 local function setNearest(image)
   if image and image.setFilter then image:setFilter("nearest", "nearest") end
 end
 
 function FollowerSprites.new(mod)
-  return setmetatable({ mod = mod, cache = {} }, FollowerSprites)
+  return setmetatable({ mod = mod, cache = {}, providerByKey = {} }, FollowerSprites)
+end
+
+function FollowerSprites:_exports(id)
+  if not self.mod.find then return nil end
+  local ok, handle = pcall(self.mod.find, self.mod, id)
+  return ok and handle and handle.exports or nil
+end
+
+function FollowerSprites:_publicDefinition(species)
+  for _, id in ipairs(PUBLIC_PROVIDER_IDS) do
+    local ex = self:_exports(id)
+    if ex and type(ex.resolveFollowerSprite) == "function" then
+      -- Deep Dive is underwater, so prefer a provider's explicit water sheet.
+      -- If none exists, keep the provider's current land style. Wilds' static
+      -- Pokédex style gets one final retry with its built-in follower/GSC
+      -- walking sheets so Wilds-only installs still have a rideable mount.
+      local requests = {
+        { surface = "water" },
+        { surface = "land" },
+      }
+      if id == WILDS_MOD_ID then
+        requests[#requests + 1] = { surface = "land", style = "followers" }
+      end
+      for _, request in ipairs(requests) do
+        local opts = {
+          species = species,
+          surface = request.surface,
+          role = "mount",
+          game = Game,
+        }
+        if request.style then opts.style = request.style end
+        local okDef, def = pcall(ex.resolveFollowerSprite, opts)
+        local frames = def and tonumber(def.frames) or 0
+        if okDef and def and def.image and frames >= 6 then
+          local okImage, image = pcall(Assets.image, def.image)
+          if okImage and image then
+            setNearest(image)
+            local width, height = image:getDimensions()
+            if width >= 16 and height >= 96 then
+              return def, image, def.providerId or id
+            end
+          end
+        end
+      end
+    end
+  end
+  return nil
 end
 
 function FollowerSprites:pathForDex(dex)
@@ -39,8 +103,8 @@ function FollowerSprites:pathForDex(dex)
         local asset = root .. "/assets/sprites/" .. filename
         if fileExists(asset) then
           local raw = love.filesystem.read(root .. "/manifest.json")
-          local decoded = raw and Json.decode(raw) or nil
-          if decoded and PROVIDER_IDS[decoded.id] then return asset end
+          local id = manifestId(raw)
+          if id and FILE_PROVIDER_IDS[id] then return asset end
           fallback = fallback or asset
         end
       end
@@ -64,8 +128,27 @@ function FollowerSprites:build(species, dex)
   local key = tostring(species) .. ":" .. tostring(dex)
   if self.cache[key] then return self.cache[key] end
 
+  local provided, providedImage, provider = self:_publicDefinition(species)
+  if provided then
+    local def = {
+      id = "DEEP_DIVE_" .. tostring(species),
+      image = provided.image,
+      frames = 6,
+      walker = true,
+      trueColor = provided.trueColor ~= false,
+      deepDiveSpriteProvider = provider,
+    }
+    local sprite = SpriteRenderer.new(def, "deep_dive_" .. tostring(species))
+    sprite.image = providedImage
+    self.cache[key] = sprite
+    self.providerByKey[key] = provider
+    return sprite
+  end
+
+  -- Backward-compatible path for existing PokéPC / Followers EX releases
+  -- that do not yet expose resolveFollowerSprite().
   local path = self:pathForDex(dex)
-  if not path then return nil, "missing follower asset" end
+  if not path then return nil, "missing compatible follower sprite provider" end
   local ok, image = pcall(Assets.image, path)
   if not ok or not image then return nil, "failed to load follower asset" end
   setNearest(image)
@@ -79,11 +162,17 @@ function FollowerSprites:build(species, dex)
     frames = 6,
     walker = true,
     trueColor = true,
+    deepDiveSpriteProvider = "legacy-file",
   }
   local sprite = SpriteRenderer.new(def, "deep_dive_" .. tostring(species))
   sprite.image = image
   self.cache[key] = sprite
+  self.providerByKey[key] = "legacy-file"
   return sprite
+end
+
+function FollowerSprites:providerFor(species, dex)
+  return self.providerByKey[tostring(species) .. ":" .. tostring(dex)]
 end
 
 return FollowerSprites

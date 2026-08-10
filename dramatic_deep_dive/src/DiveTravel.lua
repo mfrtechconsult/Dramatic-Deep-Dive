@@ -3,6 +3,23 @@ DiveTravel.__index = DiveTravel
 
 local SESSION_KEY = "travelSession"
 
+local TRANSITION_CONFLICT_MOD_IDS = {
+  -- Wilds of Kanto / overworld wild follower runtime.
+  "overworld_wild_spawns",
+  "WILDS_OF_KANTO",
+  "wilds_of_kanto",
+  -- Wild Skies owns a self-healing overworld update wrapper. Running the
+  -- staged DIVE cinematic while DSR + Wild Skies are composing that chain
+  -- can recurse through stale captured wrappers. Use the safe direct warp.
+  "wild_skies",
+  "WILD_SKIES",
+}
+
+local function manifestId(raw)
+  if type(raw) ~= "string" then return nil end
+  return raw:match('\"id\"%s*:%s*\"([^\"]+)\"')
+end
+
 local function containsRect(point, rect)
   return point.x >= rect.x and point.x < rect.x + rect.width
     and point.y >= rect.y and point.y < rect.y + rect.height
@@ -39,11 +56,81 @@ local function insertBeforeStats(items, item)
 end
 
 function DiveTravel.new(mod, definitions)
-  return setmetatable({ mod = mod, zones = definitions or {}, transition = nil }, DiveTravel)
+  return setmetatable({
+    mod = mod,
+    zones = definitions or {},
+    transition = nil,
+    pendingDiveMapId = nil,
+  }, DiveTravel)
 end
 
 function DiveTravel:setTransition(transition)
   self.transition = transition
+end
+
+local function idIn(list, id)
+  for _, wanted in ipairs(list) do if id == wanted then return true end end
+  return false
+end
+
+function DiveTravel:transitionConflictInstalled()
+  -- First use the mod API. This is evaluated when DIVE/SURFACE is selected,
+  -- long after normal mod initialization, so loaded optional mods are visible.
+  if self.mod.find then
+    for _, id in ipairs(TRANSITION_CONFLICT_MOD_IDS) do
+      local okFind, handle = pcall(self.mod.find, self.mod, id)
+      if okFind and handle ~= nil then return true end
+    end
+  end
+
+  -- Game.mods.exports is an additional runtime signal and catches packed mods
+  -- even when their on-disk folder/zip name does not match the manifest id.
+  local okGame, Game = pcall(require, "src.core.Game")
+  local exports = okGame and Game and Game.mods and Game.mods.exports or nil
+  if type(exports) == "table" then
+    for _, id in ipairs(TRANSITION_CONFLICT_MOD_IDS) do
+      if exports[id] ~= nil then return true end
+    end
+  end
+
+  -- Last fallback for unpacked installations.
+  if love and love.filesystem and love.filesystem.getDirectoryItems
+      and love.filesystem.read then
+    local okNames, names = pcall(love.filesystem.getDirectoryItems, "mods")
+    if okNames and type(names) == "table" then
+      for _, name in ipairs(names) do
+        local okRead, raw = pcall(love.filesystem.read, "mods/" .. name .. "/manifest.json")
+        local id = okRead and manifestId(raw) or nil
+        if id and idIn(TRANSITION_CONFLICT_MOD_IDS, id) then return true end
+      end
+    end
+  end
+  return false
+end
+
+-- Backward-compatible diagnostic export name.
+function DiveTravel:wildsInstalled()
+  return self:transitionConflictInstalled()
+end
+
+function DiveTravel:startDiveTransition(callback)
+  if not (self.transition and not self:transitionConflictInstalled()) then return false end
+  local ok, started = pcall(self.transition.beginDive, self.transition, callback)
+  if not ok then
+    if self.mod.log then self.mod.log:warn("DIVE cinematic disabled after transition error: %s", tostring(started)) end
+    return false
+  end
+  return started == true
+end
+
+function DiveTravel:startSurfaceTransition(callback)
+  if not (self.transition and not self:transitionConflictInstalled()) then return false end
+  local ok, started = pcall(self.transition.beginSurface, self.transition, callback)
+  if not ok then
+    if self.mod.log then self.mod.log:warn("SURFACE cinematic disabled after transition error: %s", tostring(started)) end
+    return false
+  end
+  return started == true
 end
 
 function DiveTravel:getSession() return self.mod.save:get(SESSION_KEY) end
@@ -172,15 +259,21 @@ function DiveTravel:beginDive(mon, game, zone, zoneId, position, target)
     self:setSurfing(game, true, false)
 
     local function doWarp()
+      -- map.entered is dispatched before warpTo:onDone. Mark the destination
+      -- so we do not activate or refresh presentation while the overworld is
+      -- still being constructed. onDone becomes the single activation point.
+      self.pendingDiveMapId = target.mapId
       local ok, err = self.mod.world:warpTo(target.mapId, target.x, target.y,
         target.facing or position.facing, { onDone = function()
+          self.pendingDiveMapId = nil
           self:setSurfing(game, true, false)
-          self.mod.events:emit("mod.dramatic_deep_dive.entered", {
+          self.mod.events:emit("mod.DRAMATIC_DEEP_DIVE.entered", {
             zoneId = zoneId, linkId = target.linkId,
             mapId = target.mapId, x = target.x, y = target.y,
           })
         end })
       if not ok then
+        self.pendingDiveMapId = nil
         self:setSession(nil)
         self.mod.log:error("DIVE warp failed: %s", tostring(err))
         return false
@@ -188,7 +281,7 @@ function DiveTravel:beginDive(mon, game, zone, zoneId, position, target)
       return true
     end
 
-    if not (self.transition and self.transition:beginDive(doWarp)) then doWarp() end
+    if not self:startDiveTransition(doWarp) then doWarp() end
   end)
 end
 
@@ -202,7 +295,7 @@ function DiveTravel:beginSurface(mon, game, zone, zoneId, position, target)
         target.facing or position.facing, { onDone = function()
           self:setSession(nil)
           self:setSurfing(game, true, true)
-          self.mod.events:emit("mod.dramatic_deep_dive.surfaced", {
+          self.mod.events:emit("mod.DRAMATIC_DEEP_DIVE.surfaced", {
             zoneId = zoneId, linkId = target.linkId,
             mapId = target.mapId, x = target.x, y = target.y,
           })
@@ -214,7 +307,7 @@ function DiveTravel:beginSurface(mon, game, zone, zoneId, position, target)
       return true
     end
 
-    if not (self.transition and self.transition:beginSurface(doWarp)) then doWarp() end
+    if not self:startSurfaceTransition(doWarp) then doWarp() end
   end)
 end
 
@@ -266,16 +359,33 @@ function DiveTravel:install()
     local zone, zoneId = service:zoneForUnderwaterMap(event.mapId)
     if zone then
       local Game = require("src.core.Game")
-      service:setSurfing(Game, true, false)
-      local state = service:getSession()
-      if not (state and state.active) then
-        service:setSession({ active = true, zoneId = zoneId, orphaned = true })
-      else
+
+      -- A normal DIVE warp reaches map.entered before warpTo:onDone. During
+      -- that window the engine is still constructing the destination map.
+      -- Do not touch Surf presentation or emit the underwater activation yet.
+      if service.pendingDiveMapId == event.mapId then
+        local state = service:getSession() or { active = true }
+        state.active = true
         state.zoneId = zoneId
         state.mapId = event.mapId
         service:setSession(state)
+        return
       end
-      service.mod.events:emit("mod.dramatic_deep_dive.entered", { zoneId = zoneId, mapId = event.mapId })
+
+      -- Save/load and debug/non-DIVE warps have no callback owned by this
+      -- service, so recover the underwater session from map.entered.
+      service:setSurfing(Game, true, false)
+      local state = service:getSession()
+      if not (state and state.active) then
+        state = { active = true, zoneId = zoneId, orphaned = true }
+      else
+        state.zoneId = zoneId
+        state.mapId = event.mapId
+      end
+      service:setSession(state)
+      service.mod.events:emit("mod.DRAMATIC_DEEP_DIVE.entered", {
+        zoneId = zoneId, mapId = event.mapId,
+      })
       return
     end
     local state = service:getSession()

@@ -1,60 +1,15 @@
 return {
-  route20_wreck = {
-    mapId = "DDD_ROUTE20_SEAFLOOR",
-    pieces = {
-      {
-        kind = "shipwreck",
-        x = 1260, z = 166,
-        length = 154, width = 58, height = 46,
-        yaw = -0.10,
-        solid = true,
-      },
-      {
-        kind = "black_smokers",
-        x = 820, z = 210,
-        count = 5, radius = 46, height = 72,
-        solid = true,
-      },
-    },
-  },
-
-  seafoam_ceiling = {
-    mapId = "DDD_SEAFOAM_SUNKEN_CAVE",
-    pieces = {
-      {
-        kind = "cave_ceiling",
-        x = 160, z = 128,
-        width = 288, depth = 220,
-        ceilingDepth = 18,
-        thickness = 18,
-      },
-      {
-        kind = "stalactite_field",
-        seed = 5101,
-        x0 = 42, x1 = 278, z0 = 38, z1 = 220,
-        count = 28,
-        ceilingDepth = 34,
-        minLength = 18, maxLength = 62,
-        solid = true,
-      },
-    },
-  },
-
-  route21_abyss_setpieces = {
-    mapId = "DDD_ROUTE21_ABYSS",
-    pieces = {
-      {
-        kind = "rib_cage",
-        x = 154, z = 1004,
-        length = 116, width = 88, height = 46,
-        ribs = 8,
-      },
-      {
-        kind = "black_smokers",
-        x = 83, z = 974,
-        count = 4, radius = 34, height = 82,
-        solid = true,
-      },
-    },
-  },
+  route20_wreck = { mapId = "DDD_ROUTE20_SEAFLOOR", pieces = {
+    { kind = "shipwreck", x = 2040, z = 690, length = 220, width = 82, height = 68, yaw = -0.10, solid = true },
+    { kind = "black_smokers", x = 1280, z = 610, count = 7, radius = 66, height = 118, solid = true },
+  } },
+  seafoam_ceiling = { mapId = "DDD_SEAFOAM_SUNKEN_CAVE", pieces = {
+    { kind = "cave_ceiling", x = 512, z = 384, width = 920, depth = 690, ceilingDepth = 24, thickness = 22 },
+    { kind = "stalactite_field", seed = 5101, x0 = 80, x1 = 944, z0 = 70, z1 = 700, count = 68,
+      ceilingDepth = 42, minLength = 22, maxLength = 88, solid = true },
+  } },
+  route21_abyss_setpieces = { mapId = "DDD_ROUTE21_ABYSS", pieces = {
+    { kind = "rib_cage", x = 640, z = 1380, length = 190, width = 135, height = 72, ribs = 10 },
+    { kind = "black_smokers", x = 360, z = 1320, count = 6, radius = 52, height = 132, solid = true },
+  } },
 }

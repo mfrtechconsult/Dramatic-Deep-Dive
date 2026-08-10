@@ -1,17 +1,18 @@
 {
   "id": "DRAMATIC_DEEP_DIVE",
   "name": "Dramatic Deep Dive",
-  "version": "0.4.0-alpha.4",
+  "version": "0.4.0",
   "api": 2,
   "entry": "main.lua",
   "profile": "content",
   "category": "GAMEPLAY",
   "game_version": "0.0.0-dev || >=0.1.69 <2.0.0",
   "priority": 910,
-  "dependencies": [
-    "PokePCFollowers_VoxelMerge"
-  ],
+  "dependencies": [],
   "optional_dependencies": [
+    "PokePCFollowers_VoxelMerge",
+    "overworld_wild_spawns",
+    "wild_skies",
     "DRAMALESS_SHAPE",
     "BATTLE_ART_VOXEL_FORK@>=1.7.6 <2.0.0",
     "DRAMATIC_SKY_RIDE@>=0.1.1 <2.0.0",
@@ -22,7 +23,7 @@
     "engine_internals",
     "filesystem"
   ],
-  "affects_link": false,
-  "description": "Independent HM08 DIVE and Voxel/free-depth underwater exploration with native DDD maps, depth ecology, salvage, mounts and 3D scenery.",
+  "affects_link": true,
+  "description": "Dramatic Deep Dive 0.4.0: ocean-scale 3D underwater exploration with free depth, living Pokedex-scaled Pokemon, forgiving visible encounters, Wilds/Sky compatibility, salvage, abyss scenery, HM08 DIVE, HM06 WHIRLPOOL and HM07 WATERFALL.",
   "github": "mfrtechconsult/Dramatic-Deep-Dive"
 }

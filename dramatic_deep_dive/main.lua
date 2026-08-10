@@ -4,6 +4,9 @@ local function loadModule(mod, relativePath)
     mod.log:error("Could not read %s: %s", relativePath, tostring(readError))
     return nil
   end
+  -- Gen1Recomp 0.1.75 enforces mod.<MANIFEST_ID>.* event namespaces.
+  -- Keep legacy source modules compatible while all event references migrate.
+  source = source:gsub("mod%.dramatic_deep_dive%.", "mod.DRAMATIC_DEEP_DIVE.")
   local compiler = loadstring or load
   local chunk, loadError = compiler(source, "@" .. mod.path .. "/" .. relativePath)
   if not chunk then
@@ -22,11 +25,16 @@ return function(mod)
   local Content = loadModule(mod, "src/Content.lua")
   local VoxelProvider = loadModule(mod, "src/VoxelProvider.lua")
   local Crystal251Compat = loadModule(mod, "src/Crystal251Compat.lua")
+  local JohtoWaterMoves = loadModule(mod, "src/JohtoWaterMoves.lua")
+  local HMForgetGuard = loadModule(mod, "src/HMForgetGuard.lua")
+  local HMShowcase = loadModule(mod, "src/HMShowcase.lua")
   local MountPolicy = loadModule(mod, "src/MountPolicy.lua")
   local VolumeRegistry = loadModule(mod, "src/VolumeRegistry.lua")
   local FollowerSprites = loadModule(mod, "src/FollowerSprites.lua")
   local FollowerBridge = loadModule(mod, "src/FollowerBridge.lua")
   local DiveTravel = loadModule(mod, "src/DiveTravel.lua")
+  local StableDepthTick = loadModule(mod, "src/StableDepthTick.lua")
+  local SurfaceDiveMarkers = loadModule(mod, "src/SurfaceDiveMarkers.lua")
   local Progression = loadModule(mod, "src/Progression.lua")
   local DeepDive = loadModule(mod, "src/DeepDive.lua")
   local SceneDecor = loadModule(mod, "src/SceneDecor.lua")
@@ -36,6 +44,8 @@ return function(mod)
   local SubmergedTransitionGuard = loadModule(mod, "src/SubmergedTransitionGuard.lua")
   local DiveTransition = loadModule(mod, "src/DiveTransition.lua")
   local DepthEncounters = loadModule(mod, "src/DepthEncounters.lua")
+  local UnderwaterWildlife = loadModule(mod, "src/UnderwaterWildlife.lua")
+  local UnderwaterIntercept = loadModule(mod, "src/UnderwaterIntercept.lua")
   local Salvage = loadModule(mod, "src/Salvage.lua")
   local AmbientLOD = loadModule(mod, "src/AmbientLOD.lua")
   local VoxelRenderer = loadModule(mod, "src/VoxelRenderer.lua")
@@ -46,11 +56,15 @@ return function(mod)
   local depthEncounterDefinitions = loadModule(mod, "data/depth_encounters.lua")
   local salvageDefinitions = loadModule(mod, "data/salvage.lua")
 
-  if not (Content and VoxelProvider and Crystal251Compat and MountPolicy
-      and VolumeRegistry and FollowerSprites and FollowerBridge and DiveTravel
+
+  if not (Content and VoxelProvider and Crystal251Compat and JohtoWaterMoves
+      and HMForgetGuard and HMShowcase and MountPolicy and VolumeRegistry
+      and FollowerSprites and FollowerBridge
+      and DiveTravel and StableDepthTick and SurfaceDiveMarkers
       and Progression and DeepDive and SceneDecor and SetpieceDecor
       and SceneGameplay and UnderwaterLighting and SubmergedTransitionGuard
-      and DiveTransition and DepthEncounters and Salvage and AmbientLOD
+      and DiveTransition and DepthEncounters and UnderwaterWildlife and UnderwaterIntercept
+      and Salvage and AmbientLOD
       and VoxelRenderer and volumeDefinitions and diveDefinitions
       and sceneDefinitions and setpieceDefinitions and depthEncounterDefinitions
       and salvageDefinitions) then
@@ -59,6 +73,44 @@ return function(mod)
 
   if not Content.register(mod) then return end
   Crystal251Compat.install(mod)
+
+  local johtoWater = JohtoWaterMoves.install(mod, {
+    whirlpoolBadge = "VOLCANOBADGE",
+    waterfallBadge = "EARTHBADGE",
+    whirlpools = {
+      {
+        id = "route20_seafoam_whirlpool",
+        mapId = "ROUTE_20",
+        x = 49, y = 12, width = 2, height = 4,
+      },
+    },
+    waterfalls = {
+      {
+        id = "route21_central_waterfall",
+        mapId = "ROUTE_21",
+        x = 3, y = 50, width = 14, height = 2,
+      },
+    },
+  })
+  if not johtoWater or not HMForgetGuard.install(mod) then return end
+
+  -- DIVE keeps its existing presentation unchanged. These one-time hints are
+  -- only for the two newly introduced Crystal field mechanics.
+  HMShowcase.install(mod, {
+    ROUTE_20 = {
+      id = "hm06_whirlpool_route20",
+      move = "WHIRLPOOL",
+      text = "HM06 WHIRLPOOL TEST\nA whirlpool blocks the\nSeafoam channel.\fFace it while SURFing\nand use WHIRLPOOL.",
+    },
+    ROUTE_21 = {
+      id = "hm07_waterfall_route21",
+      move = "WATERFALL",
+      text = "HM07 WATERFALL TEST\nA waterfall blocks the\ncentral current.\fDescend freely, then\nuse WATERFALL to climb.",
+    },
+  })
+
+  local surfaceDiveMarkers = SurfaceDiveMarkers.new(mod, diveDefinitions)
+  if not surfaceDiveMarkers:install() then return end
 
   local voxelProvider = VoxelProvider.new(mod)
   if not voxelProvider:discover() then return end
@@ -82,10 +134,6 @@ return function(mod)
   local controller = DeepDive.new(mod, registry, sprites, voxelRenderer,
     followerBridge, travel, MountPolicy, voxelProvider)
 
-  -- Keep the runtime controller independent from renderer and species-table
-  -- ownership. Older controller code selected the first DIVE user; override
-  -- that policy here so field-move compatibility and mount suitability remain
-  -- separate without duplicating the controller's movement/render hooks.
   local Game = require("src.core.Game")
   local function knowsDive(mon)
     for _, move in ipairs(mon and mon.moves or {}) do
@@ -120,15 +168,24 @@ return function(mod)
     end
     return originalEnsureRider(self)
   end
+
   local sceneGameplay = SceneGameplay.new(mod, controller, voxelRenderer)
   local underwaterLighting = UnderwaterLighting.new(mod, controller, voxelProvider)
   local transitionGuard = SubmergedTransitionGuard.new(mod, controller, registry)
   local diveTransition = DiveTransition.new(mod, controller, registry)
   local depthEncounters = DepthEncounters.new(mod, controller, depthEncounterDefinitions)
+  local underwaterWildlife = UnderwaterWildlife.new(
+    mod, controller, registry, sprites, depthEncounterDefinitions)
+  local underwaterIntercept = UnderwaterIntercept.new(mod, controller, underwaterWildlife)
+  depthEncounters:setWildlife(underwaterWildlife)
   local salvage = Salvage.new(mod, controller, salvageDefinitions)
   local ambientLOD = AmbientLOD.new(mod, sceneDecor)
 
   controller.travel = travel
+
+  -- Keep the cinematic available for standalone Deep Dive. DiveTravel checks
+  -- for Wilds of Kanto at field-move time (including a manifest fallback) and
+  -- bypasses this transition only when Wilds is actually active.
   travel:setTransition(diveTransition)
   voxelRenderer:setController(controller)
 
@@ -136,13 +193,20 @@ return function(mod)
   transitionGuard:install()
   Progression.install(mod)
   controller:install()
+  StableDepthTick.install(mod, controller)
   voxelRenderer:install()
   underwaterLighting:install()
   sceneGameplay:install()
   depthEncounters:install()
+  underwaterWildlife:install()
+  underwaterIntercept:install()
   ambientLOD:install()
   salvage:install()
   diveTransition:install()
+  -- Do not rewrite/self-heal OverworldState.update here. Sky-family mods
+  -- (Dramatic Sky Ride / Wild Skies) already own cooperative wrappers;
+  -- re-targeting their captured upvalues can create a circular update chain.
+  local updateHookGuard = nil
 
   mod.exports.voxelProvider = function() return voxelProvider:id(), voxelProvider:pipelineId() end
   mod.exports.isActive = function() return controller:isActive() end
@@ -154,6 +218,8 @@ return function(mod)
   mod.exports.canSwimAt = function(mapId, x, y) return registry:contains(mapId, x, y) end
   mod.exports.canDiveHere = function(game) return travel:canDiveHere(game) end
   mod.exports.canSurfaceHere = function(game) return travel:canSurfaceHere(game) end
+  mod.exports.getDiveMarkers = function(mapId) return surfaceDiveMarkers:cellsFor(mapId) end
+  mod.exports.getVisualDiveMarkers = function(mapId) return surfaceDiveMarkers:cellsFor(mapId) end
   mod.exports.currentDistrict = function()
     return sceneGameplay.districtId, sceneGameplay.districtName
   end
@@ -161,6 +227,8 @@ return function(mod)
     local band, mapId = depthEncounters:currentBand()
     return band and band.id or nil, mapId
   end
+  mod.exports.oceanLifeStats = function() return underwaterWildlife:stats() end
+  mod.exports.oceanInterceptStats = function() return underwaterIntercept:stats() end
   mod.exports.ambientLODStats = function() return ambientLOD:stats() end
   mod.exports.isTransitioning = function() return diveTransition:isActive() end
   mod.exports.salvageRemaining = function(mapId) return salvage:remaining(mapId) end
@@ -168,4 +236,21 @@ return function(mod)
     return registry:register(id, definition, owner or "external")
   end
   mod.exports.requestDepth = function(depth) return controller:requestDepth(depth) end
+
+  mod.exports.canWhirlpoolHere = function(game) return johtoWater:canWhirlpool(game) end
+  mod.exports.canWaterfallHere = function(game) return johtoWater:canWaterfall(game) end
+  mod.exports.registerWhirlpool = function(definition) return johtoWater:registerWhirlpool(definition) end
+  mod.exports.registerWaterfall = function(definition) return johtoWater:registerWaterfall(definition) end
+
+  mod.exports.wildsCompatibility = {
+    wildsId = "overworld_wild_spawns",
+    detected = function() return travel:wildsInstalled() end,
+    hookGuardReady = false,
+    ensureUpdateHook = nil,
+    hookRecoveries = function() return 0 end,
+    updateHeartbeat = function() return 0 end,
+    protectedWrappers = function() return 0 end,
+    rootUpdate = function() return nil end,
+    ownsUpdate = function() return false end,
+  }
 end
