@@ -1,4 +1,6 @@
 local Game = require("src.core.Game")
+local Assets = require("src.render.Assets")
+local SpriteRenderer = require("src.render.SpriteRenderer")
 
 local UnderwaterWildlife = {}
 UnderwaterWildlife.__index = UnderwaterWildlife
@@ -59,11 +61,37 @@ local function shortestTurn(current, wanted)
   return (wanted - current + math.pi) % (math.pi * 2) - math.pi
 end
 
-local function speciesScale(species)
+local function dexHeightFeet(species)
   local def = Game.data and Game.data.pokemon and Game.data.pokemon[species]
   local dex = def and def.dexEntry or nil
-  local feet = dex and ((tonumber(dex.heightFt) or 2) + (tonumber(dex.heightIn) or 0) / 12) or 2
-  return clamp(0.85 + feet * 0.08, 0.9, 1.8)
+  if not dex then return 2 end
+  local feet = (tonumber(dex.heightFt) or 0) + (tonumber(dex.heightIn) or 0) / 12
+  return feet > 0 and feet or 2
+end
+
+-- Pokédex height drives the actual visual size. The square-root curve keeps
+-- tiny species readable while still making large sea Pokémon unmistakably
+-- larger. Rough examples: ~1 ft -> 1.16x, ~3 ft -> 1.44x, ~8 ft -> 1.85x,
+-- 20+ ft -> capped at 2.40x.
+local function speciesVisualScale(species)
+  local feet = math.max(0.5, dexHeightFeet(species))
+  return clamp(0.78 + 0.38 * math.sqrt(feet), 0.85, 2.40)
+end
+
+local function speciesSpeedScale(species)
+  local feet = dexHeightFeet(species)
+  return clamp(0.92 + feet * 0.025, 0.92, 1.35)
+end
+
+local function cloneScaledSprite(source, species, scale)
+  if not (source and source.def) then return source end
+  local def = {}
+  for key, value in pairs(source.def) do def[key] = value end
+  def.id = tostring(def.id or "DEEP_DIVE") .. "_WILDLIFE_" .. tostring(species)
+  def.deepDiveWorldScale = scale
+  local sprite = SpriteRenderer.new(def, "deep_dive_wildlife_" .. tostring(species))
+  if source.image then sprite.image = source.image end
+  return sprite
 end
 
 function UnderwaterWildlife.new(mod, controller, registry, sprites, definitions)
@@ -191,6 +219,8 @@ end
 function UnderwaterWildlife:makeEntity(pick, sprite, volume, band, px, py, depth, lo, hi)
   self.serial = self.serial + 1
   local service = self
+  local visualScale = speciesVisualScale(pick.species)
+  sprite = cloneScaledSprite(sprite, pick.species, visualScale)
   local swimmer = {
     id = "dramatic_deep_dive_wildlife_" .. tostring(self.serial),
     deepDiveWildlife = true,
@@ -207,7 +237,8 @@ function UnderwaterWildlife:makeEntity(pick, sprite, volume, band, px, py, depth
     bandMin = lo,
     bandMax = hi,
     heading = randRange(0, math.pi * 2),
-    speed = randRange(17, 29) * speciesScale(pick.species),
+    visualScale = visualScale,
+    speed = randRange(17, 29) * speciesSpeedScale(pick.species),
     t = randRange(0, 8),
     turnTimer = randRange(0.6, 2.4),
     depthTimer = randRange(1.5, 4.0),
@@ -232,7 +263,23 @@ function UnderwaterWildlife:makeEntity(pick, sprite, volume, band, px, py, depth
 
   function swimmer:draw(camX, camY)
     if not (self.sprite and self.sprite.draw) then return end
-    self.sprite:draw(self.px, self.py - self:lift(), camX, camY,
+    local scale = tonumber(self.visualScale) or 1
+    local visualY = self.py - self:lift()
+    if love and love.graphics and scale ~= 1 then
+      -- Scale around the sprite's feet/centre so large Pokémon grow upward
+      -- and outward instead of sliding around the world as their size changes.
+      local anchorX = self.px + 8 - (camX or 0)
+      local anchorY = visualY + 16 - (camY or 0)
+      love.graphics.push()
+      love.graphics.translate(anchorX, anchorY)
+      love.graphics.scale(scale, scale)
+      love.graphics.translate(-anchorX, -anchorY)
+      self.sprite:draw(self.px, visualY, camX, camY,
+        self.facing, self:phase(), false)
+      love.graphics.pop()
+      return
+    end
+    self.sprite:draw(self.px, visualY, camX, camY,
       self.facing, self:phase(), false)
   end
 
@@ -424,8 +471,78 @@ function UnderwaterWildlife:consumeNearby(species)
   return true
 end
 
+function UnderwaterWildlife:installVoxelScaleBridge()
+  local voxelRenderer = self.controller and self.controller.voxelRenderer
+  if not (voxelRenderer and voxelRenderer.providerModule) then return false end
+  local SpriteBillboards = voxelRenderer:providerModule("SpriteBillboards")
+  local Voxel3D = voxelRenderer:providerModule("Voxel3D")
+  if not (SpriteBillboards and Voxel3D and Voxel3D.pushQuad and Voxel3D.newMesh) then
+    return false
+  end
+  if SpriteBillboards.dramaticDeepDiveScaleHook then return true end
+
+  local innerMesh = SpriteBillboards.mesh
+  local innerShadow = SpriteBillboards.shadowQuad or innerMesh
+  local innerInvalidate = SpriteBillboards.invalidate
+  local scaledMeshes = {}
+
+  local function buildScaled(def, frame, scale)
+    local key = tostring(def.image) .. "#" .. tostring(frame) .. "#ddd#"
+      .. string.format("%.3f", scale)
+    if scaledMeshes[key] ~= nil then return scaledMeshes[key] or nil end
+
+    local ok, mesh = pcall(function()
+      local img = Assets.image(def.image)
+      local iw, ih = img:getDimensions()
+      local fy = (tonumber(frame) or 0) * 16
+      if fy + 16 > ih then fy = 0 end
+      local u0, u1 = 0.02 / iw, (16 - 0.02) / iw
+      local v0, v1 = (fy + 0.05) / ih, (fy + 15.95) / ih
+      local half = 8 * scale
+      local height = 16 * scale
+      -- Keep x=8 as the foot centre used by VoxelScene.billboardMatrix.
+      local verts = {
+        { 8-half, 0,      0, u0, v1, 1 },
+        { 8+half, 0,      0, u1, v1, 1 },
+        { 8+half, height, 0, u1, v0, 1 },
+        { 8-half, height, 0, u0, v0, 1 },
+      }
+      local indices = {}
+      Voxel3D.pushQuad(indices, 0)
+      return Voxel3D.newMesh(verts, indices)
+    end)
+    scaledMeshes[key] = ok and mesh or false
+    return scaledMeshes[key] or nil
+  end
+
+  local function scaledOr(inner, def, frame)
+    local scale = def and tonumber(def.deepDiveWorldScale) or nil
+    if scale and math.abs(scale - 1) > 0.01 then
+      return buildScaled(def, frame, scale) or inner(def, frame)
+    end
+    return inner(def, frame)
+  end
+
+  SpriteBillboards.mesh = function(def, frame)
+    return scaledOr(innerMesh, def, frame)
+  end
+  SpriteBillboards.shadowQuad = function(def, frame)
+    return scaledOr(innerShadow, def, frame)
+  end
+  SpriteBillboards.invalidate = function(...)
+    for key, mesh in pairs(scaledMeshes) do
+      if mesh and mesh.release then pcall(mesh.release, mesh) end
+      scaledMeshes[key] = nil
+    end
+    if innerInvalidate then return innerInvalidate(...) end
+  end
+  SpriteBillboards.dramaticDeepDiveScaleHook = true
+  return true
+end
+
 function UnderwaterWildlife:install()
   local service = self
+  self:installVoxelScaleBridge()
   self.mod.hooks:wrap("input.step", function(nextFn, game, dt)
     local result = nextFn(game, dt)
     local ow = game and game.overworld
