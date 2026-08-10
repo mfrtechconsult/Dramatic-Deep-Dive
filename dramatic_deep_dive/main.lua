@@ -33,6 +33,7 @@ return function(mod)
   local FollowerSprites = loadModule(mod, "src/FollowerSprites.lua")
   local FollowerBridge = loadModule(mod, "src/FollowerBridge.lua")
   local DiveTravel = loadModule(mod, "src/DiveTravel.lua")
+  local StableDepthTick = loadModule(mod, "src/StableDepthTick.lua")
   local SurfaceDiveMarkers = loadModule(mod, "src/SurfaceDiveMarkers.lua")
   local Progression = loadModule(mod, "src/Progression.lua")
   local DeepDive = loadModule(mod, "src/DeepDive.lua")
@@ -43,6 +44,7 @@ return function(mod)
   local SubmergedTransitionGuard = loadModule(mod, "src/SubmergedTransitionGuard.lua")
   local DiveTransition = loadModule(mod, "src/DiveTransition.lua")
   local DepthEncounters = loadModule(mod, "src/DepthEncounters.lua")
+  local UnderwaterWildlife = loadModule(mod, "src/UnderwaterWildlife.lua")
   local Salvage = loadModule(mod, "src/Salvage.lua")
   local AmbientLOD = loadModule(mod, "src/AmbientLOD.lua")
   local VoxelRenderer = loadModule(mod, "src/VoxelRenderer.lua")
@@ -53,13 +55,15 @@ return function(mod)
   local depthEncounterDefinitions = loadModule(mod, "data/depth_encounters.lua")
   local salvageDefinitions = loadModule(mod, "data/salvage.lua")
 
+
   if not (Content and VoxelProvider and Crystal251Compat and JohtoWaterMoves
       and HMForgetGuard and HMShowcase and MountPolicy and VolumeRegistry
       and FollowerSprites and FollowerBridge
-      and DiveTravel and SurfaceDiveMarkers
+      and DiveTravel and StableDepthTick and SurfaceDiveMarkers
       and Progression and DeepDive and SceneDecor and SetpieceDecor
       and SceneGameplay and UnderwaterLighting and SubmergedTransitionGuard
-      and DiveTransition and DepthEncounters and Salvage and AmbientLOD
+      and DiveTransition and DepthEncounters and UnderwaterWildlife
+      and Salvage and AmbientLOD
       and VoxelRenderer and volumeDefinitions and diveDefinitions
       and sceneDefinitions and setpieceDefinitions and depthEncounterDefinitions
       and salvageDefinitions) then
@@ -89,6 +93,8 @@ return function(mod)
   })
   if not johtoWater or not HMForgetGuard.install(mod) then return end
 
+  -- DIVE keeps its existing presentation unchanged. These one-time hints are
+  -- only for the two newly introduced Crystal field mechanics.
   HMShowcase.install(mod, {
     ROUTE_20 = {
       id = "hm06_whirlpool_route20",
@@ -167,13 +173,17 @@ return function(mod)
   local transitionGuard = SubmergedTransitionGuard.new(mod, controller, registry)
   local diveTransition = DiveTransition.new(mod, controller, registry)
   local depthEncounters = DepthEncounters.new(mod, controller, depthEncounterDefinitions)
+  local underwaterWildlife = UnderwaterWildlife.new(
+    mod, controller, registry, sprites, depthEncounterDefinitions)
+  depthEncounters:setWildlife(underwaterWildlife)
   local salvage = Salvage.new(mod, controller, salvageDefinitions)
   local ambientLOD = AmbientLOD.new(mod, sceneDecor)
 
   controller.travel = travel
 
-  -- Standalone keeps the cinematic. DiveTravel bypasses it at field-move time
-  -- whenever Wilds of Kanto or Wild Skies is actually loaded.
+  -- Keep the cinematic available for standalone Deep Dive. DiveTravel checks
+  -- for Wilds of Kanto at field-move time (including a manifest fallback) and
+  -- bypasses this transition only when Wilds is actually active.
   travel:setTransition(diveTransition)
   voxelRenderer:setController(controller)
 
@@ -181,17 +191,19 @@ return function(mod)
   transitionGuard:install()
   Progression.install(mod)
   controller:install()
+  StableDepthTick.install(mod, controller)
   voxelRenderer:install()
   underwaterLighting:install()
   sceneGameplay:install()
   depthEncounters:install()
+  underwaterWildlife:install()
   ambientLOD:install()
   salvage:install()
   diveTransition:install()
-
-  -- Never rewrite/self-heal OverworldState.update here. Dramatic Sky Ride and
-  -- Wild Skies already compose cooperative wrappers. Re-targeting captured
-  -- update upvalues can create a circular DSR -> Wild Skies -> DSR chain.
+  -- Do not rewrite/self-heal OverworldState.update here. Sky-family mods
+  -- (Dramatic Sky Ride / Wild Skies) already own cooperative wrappers;
+  -- re-targeting their captured upvalues can create a circular update chain.
+  local updateHookGuard = nil
 
   mod.exports.voxelProvider = function() return voxelProvider:id(), voxelProvider:pipelineId() end
   mod.exports.isActive = function() return controller:isActive() end
@@ -212,6 +224,7 @@ return function(mod)
     local band, mapId = depthEncounters:currentBand()
     return band and band.id or nil, mapId
   end
+  mod.exports.oceanLifeStats = function() return underwaterWildlife:stats() end
   mod.exports.ambientLODStats = function() return ambientLOD:stats() end
   mod.exports.isTransitioning = function() return diveTransition:isActive() end
   mod.exports.salvageRemaining = function(mapId) return salvage:remaining(mapId) end
