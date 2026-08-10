@@ -31,6 +31,7 @@ return function(mod)
   local VolumeRegistry = loadModule(mod, "src/VolumeRegistry.lua")
   local KantoWaterAtlas = loadModule(mod, "src/KantoWaterAtlas.lua")
   local SeabedGenerator = loadModule(mod, "src/SeabedGenerator.lua")
+  local OceanSpaceExpander = loadModule(mod, "src/OceanSpaceExpander.lua")
   local SeabedLandmarks = loadModule(mod, "src/SeabedLandmarks.lua")
   local SurfaceLandmarkAnchors = loadModule(mod, "src/SurfaceLandmarkAnchors.lua")
   local SubmergedWarpLinks = loadModule(mod, "src/SubmergedWarpLinks.lua")
@@ -66,11 +67,11 @@ return function(mod)
 
   if not (Content and VoxelProvider and Crystal251Compat and JohtoWaterMoves
       and HMForgetGuard and HMShowcase and MountPolicy and VolumeRegistry
-      and KantoWaterAtlas and SeabedGenerator and SeabedLandmarks
-      and SurfaceLandmarkAnchors and SubmergedWarpLinks and SeamHandoff
-      and FollowerSprites and FollowerBridge and DiveTravel and StableDepthTick
-      and SurfaceDiveMarkers and Progression and DeepDive and SceneDecor
-      and SetpieceDecor and SceneGameplay and UnderwaterLighting
+      and KantoWaterAtlas and SeabedGenerator and OceanSpaceExpander
+      and SeabedLandmarks and SurfaceLandmarkAnchors and SubmergedWarpLinks
+      and SeamHandoff and FollowerSprites and FollowerBridge and DiveTravel
+      and StableDepthTick and SurfaceDiveMarkers and Progression and DeepDive
+      and SceneDecor and SetpieceDecor and SceneGameplay and UnderwaterLighting
       and SubmergedTransitionGuard and DiveTransition and DepthEncounters
       and UnderwaterWildlife and UnderwaterIntercept and Salvage and AmbientLOD
       and VoxelRenderer and volumeDefinitions and diveDefinitions
@@ -81,16 +82,23 @@ return function(mod)
 
   if not Content.register(mod) then return end
 
-  -- Full-Kanto generation pipeline. The surface game's real water cells are the
-  -- only source of navigable coverage; all later passes decorate that topology.
+  -- Full-Kanto generation pipeline. Surface hydrology remains the geographic
+  -- source of truth, then OceanSpaceExpander stretches that topology only in
+  -- the underwater world so open seas feel broad without changing Kanto above.
   local atlas = KantoWaterAtlas.new(mod, seabedProfiles):build()
   local generated = SeabedGenerator.new(mod, atlas, seabedProfiles):build()
+  local oceanSpaceExpander = OceanSpaceExpander.new(mod, atlas)
+  oceanSpaceExpander:expandTopology(generated)
+
   local landmarkPass = SeabedLandmarks.new(mod, atlas, seabedLandmarkRules)
   local landmarkMapCount = landmarkPass:apply(generated.scenes)
   local surfaceAnchorPass = SurfaceLandmarkAnchors.new(mod, atlas)
   local surfaceAnchorMaps, surfaceAnchorCount = surfaceAnchorPass:apply(generated.scenes)
   local submergedWarpLinks = SubmergedWarpLinks.new(mod, atlas, generated.scenes)
   local submergedPortalCount = submergedWarpLinks.count or 0
+  -- Landmarks and portal anchors are authored in surface-Kanto coordinates.
+  -- Stretch them only after all surface-aware passes have placed their points.
+  oceanSpaceExpander:expandPresentation(generated, submergedWarpLinks)
 
   local function mergeGenerated(target, source)
     for id, definition in pairs(source or {}) do target[id] = definition end
@@ -103,9 +111,11 @@ return function(mod)
   mergeGenerated(salvageDefinitions, generated.salvage)
 
   if mod.log then
+    local spaceStats = oceanSpaceExpander:stats()
     mod.log:info(
-      "Kanto water atlas: %d maps, %d water cells, %d connected bodies, %d edge seams, %d submerged portals, %d landmark maps, %d surface anchors",
+      "Kanto water atlas: %d maps, %d water cells, %d expanded swim cells, %d connected bodies, %d edge seams, %d submerged portals, %d landmark maps, %d surface anchors",
       atlas.stats.maps or 0, atlas.stats.waterCells or 0,
+      spaceStats.expandedSeabedCells or atlas.stats.seabedCells or 0,
       atlas.stats.components or 0, atlas.stats.seams or 0,
       submergedPortalCount, landmarkMapCount or 0, surfaceAnchorCount or 0)
   end
@@ -156,6 +166,7 @@ return function(mod)
   local sprites = FollowerSprites.new(mod)
   local followerBridge = FollowerBridge.new(mod)
   local travel = DiveTravel.new(mod, diveDefinitions)
+  oceanSpaceExpander:patchTravel(travel)
   local sceneDecor = SceneDecor.new(mod, registry, sceneDefinitions)
   local setpieceDecor = SetpieceDecor.new(mod, registry, setpieceDefinitions)
   local voxelRenderer = VoxelRenderer.new(mod, registry, sceneDecor, setpieceDecor, voxelProvider)
@@ -242,9 +253,13 @@ return function(mod)
   mod.exports.surfaceDiveMaskEnabled = function() return false end
   mod.exports.waterAtlasStats = function()
     local portalStats = submergedWarpLinks:stats()
+    local spaceStats = oceanSpaceExpander:stats()
     return {
       maps = atlas.stats.maps,
       waterCells = atlas.stats.waterCells,
+      expandedSeabedCells = spaceStats.expandedSeabedCells,
+      expandedMaps = spaceStats.expandedMaps,
+      maxUnderwaterScale = spaceStats.maxScale,
       components = atlas.stats.components,
       seams = atlas.stats.seams,
       submergedPortals = portalStats.portals,
@@ -254,6 +269,7 @@ return function(mod)
       surfaceAnchors = surfaceAnchorCount,
     }
   end
+  mod.exports.oceanSpaceStats = function() return oceanSpaceExpander:stats() end
   mod.exports.underwaterMapFor = function(surfaceMapId) return atlas:underwaterMapId(surfaceMapId) end
   mod.exports.surfaceMapFor = function(underwaterMapId) return atlas:surfaceMapId(underwaterMapId) end
   mod.exports.canDiveHere = function(game) return travel:canDiveHere(game) end
