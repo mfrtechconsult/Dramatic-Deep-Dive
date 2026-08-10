@@ -1,7 +1,7 @@
 {
   "id": "DRAMATIC_DEEP_DIVE",
   "name": "Dramatic Deep Dive",
-  "version": "0.5.0-alpha.4",
+  "version": "0.5.0-alpha.5",
   "api": 2,
   "entry": "main.lua",
   "profile": "content",
@@ -24,6 +24,6 @@
     "filesystem"
   ],
   "affects_link": true,
-  "description": "Full-Kanto Deep Dive preview with continuous water under bridges, docks and pontoons. With Wilds of Kanto active, underwater random/vanilla encounters are hard-disabled and only visible overworld Pokemon interception can start wild battles. Includes seamless underwater connections, cave/harbor portals, biome-aware geology and lighting, Pokedex-scaled wildlife, salvage and HM08 DIVE.",
+  "description": "Full-Kanto Deep Dive preview with continuous water under bridges, docks and pontoons. With Wilds of Kanto active, classic underwater encounters are suppressed through Gen1Recomp's public encounter.roll and encounter.species hook chain, leaving visible overworld Pokemon interception as the only Deep Dive wild-battle source. Includes seamless underwater connections, cave/harbor portals, biome-aware geology and lighting, Pokedex-scaled wildlife, salvage and HM08 DIVE.",
   "github": "mfrtechconsult/Dramatic-Deep-Dive"
 }
