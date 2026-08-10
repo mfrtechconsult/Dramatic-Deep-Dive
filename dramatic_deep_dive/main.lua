@@ -32,6 +32,7 @@ return function(mod)
   local KantoWaterAtlas = loadModule(mod, "src/KantoWaterAtlas.lua")
   local SeabedGenerator = loadModule(mod, "src/SeabedGenerator.lua")
   local SeabedLandmarks = loadModule(mod, "src/SeabedLandmarks.lua")
+  local SurfaceLandmarkAnchors = loadModule(mod, "src/SurfaceLandmarkAnchors.lua")
   local SeamHandoff = loadModule(mod, "src/SeamHandoff.lua")
   local FollowerSprites = loadModule(mod, "src/FollowerSprites.lua")
   local FollowerBridge = loadModule(mod, "src/FollowerBridge.lua")
@@ -63,8 +64,8 @@ return function(mod)
 
   if not (Content and VoxelProvider and Crystal251Compat and JohtoWaterMoves
       and HMForgetGuard and HMShowcase and MountPolicy and VolumeRegistry
-      and KantoWaterAtlas and SeabedGenerator and SeabedLandmarks and SeamHandoff
-      and FollowerSprites and FollowerBridge
+      and KantoWaterAtlas and SeabedGenerator and SeabedLandmarks
+      and SurfaceLandmarkAnchors and SeamHandoff and FollowerSprites and FollowerBridge
       and DiveTravel and StableDepthTick and SurfaceDiveMarkers
       and Progression and DeepDive and SceneDecor and SetpieceDecor
       and SceneGameplay and UnderwaterLighting and SubmergedTransitionGuard
@@ -82,6 +83,8 @@ return function(mod)
   local generated = SeabedGenerator.new(mod, atlas, seabedProfiles):build()
   local landmarkPass = SeabedLandmarks.new(mod, atlas, seabedLandmarkRules)
   local landmarkMapCount = landmarkPass:apply(generated.scenes)
+  local surfaceAnchorPass = SurfaceLandmarkAnchors.new(mod, atlas)
+  local surfaceAnchorMaps, surfaceAnchorCount = surfaceAnchorPass:apply(generated.scenes)
   local function mergeGenerated(target, source)
     for id, definition in pairs(source or {}) do target[id] = definition end
   end
@@ -92,10 +95,10 @@ return function(mod)
   mergeGenerated(depthEncounterDefinitions, generated.encounters)
   mergeGenerated(salvageDefinitions, generated.salvage)
   if mod.log then
-    mod.log:info("Kanto water atlas: %d maps, %d water cells, %d connected bodies, %d underwater seams, %d landmark maps",
+    mod.log:info("Kanto water atlas: %d maps, %d water cells, %d connected bodies, %d underwater seams, %d landmark maps, %d surface anchors",
       atlas.stats.maps or 0, atlas.stats.waterCells or 0,
       atlas.stats.components or 0, atlas.stats.seams or 0,
-      landmarkMapCount or 0)
+      landmarkMapCount or 0, surfaceAnchorCount or 0)
   end
 
   Crystal251Compat.install(mod)
@@ -228,6 +231,8 @@ return function(mod)
       maps = atlas.stats.maps, waterCells = atlas.stats.waterCells,
       components = atlas.stats.components, seams = atlas.stats.seams,
       landmarkMaps = landmarkMapCount,
+      surfaceAnchorMaps = surfaceAnchorMaps,
+      surfaceAnchors = surfaceAnchorCount,
     }
   end
   mod.exports.underwaterMapFor = function(surfaceMapId) return atlas:underwaterMapId(surfaceMapId) end
