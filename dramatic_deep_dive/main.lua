@@ -23,6 +23,7 @@ return function(mod)
   local VoxelProvider = loadModule(mod, "src/VoxelProvider.lua")
   local Crystal251Compat = loadModule(mod, "src/Crystal251Compat.lua")
   local JohtoWaterMoves = loadModule(mod, "src/JohtoWaterMoves.lua")
+  local HMForgetGuard = loadModule(mod, "src/HMForgetGuard.lua")
   local MountPolicy = loadModule(mod, "src/MountPolicy.lua")
   local VolumeRegistry = loadModule(mod, "src/VolumeRegistry.lua")
   local FollowerSprites = loadModule(mod, "src/FollowerSprites.lua")
@@ -49,20 +50,19 @@ return function(mod)
   local salvageDefinitions = loadModule(mod, "data/salvage.lua")
 
   if not (Content and VoxelProvider and Crystal251Compat and JohtoWaterMoves
-      and MountPolicy and VolumeRegistry and FollowerSprites and FollowerBridge
-      and UpdateHookGuard and DiveTravel and Progression and DeepDive and SceneDecor
-      and SetpieceDecor and SceneGameplay and UnderwaterLighting
-      and SubmergedTransitionGuard and DiveTransition and DepthEncounters
-      and Salvage and AmbientLOD and VoxelRenderer and volumeDefinitions
-      and diveDefinitions and sceneDefinitions and setpieceDefinitions
-      and depthEncounterDefinitions and salvageDefinitions) then
+      and HMForgetGuard and MountPolicy and VolumeRegistry and FollowerSprites
+      and FollowerBridge and UpdateHookGuard and DiveTravel and Progression
+      and DeepDive and SceneDecor and SetpieceDecor and SceneGameplay
+      and UnderwaterLighting and SubmergedTransitionGuard and DiveTransition
+      and DepthEncounters and Salvage and AmbientLOD and VoxelRenderer
+      and volumeDefinitions and diveDefinitions and sceneDefinitions
+      and setpieceDefinitions and depthEncounterDefinitions and salvageDefinitions) then
     return
   end
 
   if not Content.register(mod) then return end
   Crystal251Compat.install(mod)
 
-  -- Kanto equivalents of Crystal's 7th/8th-badge field-move gates.
   local johtoWater = JohtoWaterMoves.install(mod, {
     whirlpoolBadge = "VOLCANOBADGE",
     waterfallBadge = "EARTHBADGE",
@@ -81,7 +81,7 @@ return function(mod)
       },
     },
   })
-  if not johtoWater then return end
+  if not johtoWater or not HMForgetGuard.install(mod) then return end
 
   local voxelProvider = VoxelProvider.new(mod)
   if not voxelProvider:discover() then return end
