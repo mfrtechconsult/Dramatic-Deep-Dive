@@ -1,7 +1,7 @@
 {
   "id": "DRAMATIC_DEEP_DIVE",
   "name": "Dramatic Deep Dive",
-  "version": "0.4.0-alpha.6",
+  "version": "0.4.0-alpha.7",
   "api": 2,
   "entry": "main.lua",
   "profile": "content",
@@ -23,6 +23,6 @@
     "filesystem"
   ],
   "affects_link": true,
-  "description": "Diagnostic travel-only Deep Dive build: validated Kanto-style surface tint, DIVE/SURFACE warp and underwater maps retained while advanced Voxel/free-depth runtime activation is temporarily isolated.",
+  "description": "Diagnostic travel-only Deep Dive build with validated Kanto-style surface tint and a single post-warp underwater activation path. Advanced Voxel/free-depth runtime remains isolated while entry crashes are diagnosed.",
   "github": "mfrtechconsult/Dramatic-Deep-Dive"
 }
