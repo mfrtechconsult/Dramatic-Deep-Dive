@@ -248,7 +248,7 @@ Automated contracts verify:
 
 - atlas scanning and connected water bodies;
 - reciprocal underwater route seams;
-- exact seam-cell masks;
+- exact seam-cell masks, including preservation through volume registration;
 - seam depth reconciliation;
 - generated map block topology;
 - exact full-water coverage;
@@ -267,4 +267,4 @@ Automated contracts verify:
 
 Current development preview: **0.5.0-alpha.2**.
 
-The published `main` release remains the stable `0.4.0` line until the full-Kanto overhaul has completed gameplay testing.
+This branch is intended for full-Kanto gameplay testing. The published `main` release remains the stable `0.4.0` line until the overhaul is explicitly promoted after testing.
