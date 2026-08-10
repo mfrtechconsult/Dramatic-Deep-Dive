@@ -1,7 +1,7 @@
 {
   "id": "DRAMATIC_DEEP_DIVE",
   "name": "Dramatic Deep Dive",
-  "version": "0.4.0-alpha.12",
+  "version": "0.4.0-alpha.14",
   "api": 2,
   "entry": "main.lua",
   "profile": "content",
@@ -24,6 +24,6 @@
     "filesystem"
   ],
   "affects_link": true,
-  "description": "Full Dramatic Deep Dive runtime with ocean-scale swim spaces, fixed-step vertical depth controls compatible with Wilds/Sky mods, visible depth-aware Water Pokemon schools using installed sprite providers, low random encounter frequency, and safe Sky/Wilds transition handling.",
+  "description": "Full Dramatic Deep Dive runtime with ocean-scale swim spaces, visible depth-aware underwater wildlife, stable Wilds/Sky compatibility, blue abyss boundaries and surface ceiling, and overworld-only underwater encounters whenever Wilds of Kanto is active.",
   "github": "mfrtechconsult/Dramatic-Deep-Dive"
 }
