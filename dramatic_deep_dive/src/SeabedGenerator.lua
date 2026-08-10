@@ -328,8 +328,12 @@ function SeabedGenerator:build()
     out.encounters[map.id] = bands
     local first = bands[1]
     if first and not self.mod.content.encounters:get(map.id) then
+      -- Keep the engine-facing record permanently inert. Deep Dive's
+      -- DepthEncounters wrapper injects the current depth-band rate when Wilds
+      -- is absent. When Wilds is present, this zero-rate fallback plus the hard
+      -- Encounter.roll gate means only visible overworld wildlife can battle.
       self.mod.content.encounters:register(map.id, {
-        grass = { rate = first.rate or 5, slots = first.slots },
+        grass = { rate = 0, slots = first.slots },
       })
     end
     out.scenes["atlas:" .. surfaceId] = self:scene(entry)
