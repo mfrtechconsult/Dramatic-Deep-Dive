@@ -33,6 +33,7 @@ return function(mod)
   local SeabedGenerator = loadModule(mod, "src/SeabedGenerator.lua")
   local SeabedLandmarks = loadModule(mod, "src/SeabedLandmarks.lua")
   local SurfaceLandmarkAnchors = loadModule(mod, "src/SurfaceLandmarkAnchors.lua")
+  local SubmergedWarpLinks = loadModule(mod, "src/SubmergedWarpLinks.lua")
   local SeamHandoff = loadModule(mod, "src/SeamHandoff.lua")
   local FollowerSprites = loadModule(mod, "src/FollowerSprites.lua")
   local FollowerBridge = loadModule(mod, "src/FollowerBridge.lua")
@@ -53,6 +54,7 @@ return function(mod)
   local Salvage = loadModule(mod, "src/Salvage.lua")
   local AmbientLOD = loadModule(mod, "src/AmbientLOD.lua")
   local VoxelRenderer = loadModule(mod, "src/VoxelRenderer.lua")
+
   local volumeDefinitions = loadModule(mod, "data/volumes.lua")
   local diveDefinitions = loadModule(mod, "data/dive_links.lua")
   local sceneDefinitions = loadModule(mod, "data/scenes.lua")
@@ -65,12 +67,12 @@ return function(mod)
   if not (Content and VoxelProvider and Crystal251Compat and JohtoWaterMoves
       and HMForgetGuard and HMShowcase and MountPolicy and VolumeRegistry
       and KantoWaterAtlas and SeabedGenerator and SeabedLandmarks
-      and SurfaceLandmarkAnchors and SeamHandoff and FollowerSprites and FollowerBridge
-      and DiveTravel and StableDepthTick and SurfaceDiveMarkers
-      and Progression and DeepDive and SceneDecor and SetpieceDecor
-      and SceneGameplay and UnderwaterLighting and SubmergedTransitionGuard
-      and DiveTransition and DepthEncounters and UnderwaterWildlife and UnderwaterIntercept
-      and Salvage and AmbientLOD
+      and SurfaceLandmarkAnchors and SubmergedWarpLinks and SeamHandoff
+      and FollowerSprites and FollowerBridge and DiveTravel and StableDepthTick
+      and SurfaceDiveMarkers and Progression and DeepDive and SceneDecor
+      and SetpieceDecor and SceneGameplay and UnderwaterLighting
+      and SubmergedTransitionGuard and DiveTransition and DepthEncounters
+      and UnderwaterWildlife and UnderwaterIntercept and Salvage and AmbientLOD
       and VoxelRenderer and volumeDefinitions and diveDefinitions
       and sceneDefinitions and setpieceDefinitions and depthEncounterDefinitions
       and salvageDefinitions and seabedProfiles and seabedLandmarkRules) then
@@ -79,12 +81,17 @@ return function(mod)
 
   if not Content.register(mod) then return end
 
+  -- Full-Kanto generation pipeline. The surface game's real water cells are the
+  -- only source of navigable coverage; all later passes decorate that topology.
   local atlas = KantoWaterAtlas.new(mod, seabedProfiles):build()
   local generated = SeabedGenerator.new(mod, atlas, seabedProfiles):build()
   local landmarkPass = SeabedLandmarks.new(mod, atlas, seabedLandmarkRules)
   local landmarkMapCount = landmarkPass:apply(generated.scenes)
   local surfaceAnchorPass = SurfaceLandmarkAnchors.new(mod, atlas)
   local surfaceAnchorMaps, surfaceAnchorCount = surfaceAnchorPass:apply(generated.scenes)
+  local submergedWarpLinks = SubmergedWarpLinks.new(mod, atlas, generated.scenes)
+  local submergedPortalCount = submergedWarpLinks.count or 0
+
   local function mergeGenerated(target, source)
     for id, definition in pairs(source or {}) do target[id] = definition end
   end
@@ -94,11 +101,13 @@ return function(mod)
   mergeGenerated(setpieceDefinitions, generated.setpieces)
   mergeGenerated(depthEncounterDefinitions, generated.encounters)
   mergeGenerated(salvageDefinitions, generated.salvage)
+
   if mod.log then
-    mod.log:info("Kanto water atlas: %d maps, %d water cells, %d connected bodies, %d underwater seams, %d landmark maps, %d surface anchors",
+    mod.log:info(
+      "Kanto water atlas: %d maps, %d water cells, %d connected bodies, %d edge seams, %d submerged portals, %d landmark maps, %d surface anchors",
       atlas.stats.maps or 0, atlas.stats.waterCells or 0,
       atlas.stats.components or 0, atlas.stats.seams or 0,
-      landmarkMapCount or 0, surfaceAnchorCount or 0)
+      submergedPortalCount, landmarkMapCount or 0, surfaceAnchorCount or 0)
   end
 
   Crystal251Compat.install(mod)
@@ -126,6 +135,8 @@ return function(mod)
     },
   })
 
+  -- Kept as a functional index only. Full-Kanto mode deliberately renders no
+  -- dark surface mask: all detected water is intended to be diveable.
   local surfaceDiveMarkers = SurfaceDiveMarkers.new(mod, diveDefinitions)
   if not surfaceDiveMarkers:install() then return end
 
@@ -208,6 +219,7 @@ return function(mod)
   Progression.install(mod)
   controller:install()
   StableDepthTick.install(mod, controller)
+  submergedWarpLinks:install(controller)
   voxelRenderer:install()
   underwaterLighting:install()
   sceneGameplay:install()
@@ -226,10 +238,17 @@ return function(mod)
   mod.exports.currentVolume = function() return controller:currentVolume() end
   mod.exports.floorDepthAt = function(mapId, x, y) return registry:floorDepthAt(mapId, x, y) end
   mod.exports.canSwimAt = function(mapId, x, y) return registry:contains(mapId, x, y) end
+  mod.exports.allWaterDiveable = function() return true end
+  mod.exports.surfaceDiveMaskEnabled = function() return false end
   mod.exports.waterAtlasStats = function()
+    local portalStats = submergedWarpLinks:stats()
     return {
-      maps = atlas.stats.maps, waterCells = atlas.stats.waterCells,
-      components = atlas.stats.components, seams = atlas.stats.seams,
+      maps = atlas.stats.maps,
+      waterCells = atlas.stats.waterCells,
+      components = atlas.stats.components,
+      seams = atlas.stats.seams,
+      submergedPortals = portalStats.portals,
+      submergedPortalTransitions = portalStats.transitions,
       landmarkMaps = landmarkMapCount,
       surfaceAnchorMaps = surfaceAnchorMaps,
       surfaceAnchors = surfaceAnchorCount,
@@ -240,7 +259,8 @@ return function(mod)
   mod.exports.canDiveHere = function(game) return travel:canDiveHere(game) end
   mod.exports.canSurfaceHere = function(game) return travel:canSurfaceHere(game) end
   mod.exports.getDiveMarkers = function(mapId) return surfaceDiveMarkers:cellsFor(mapId) end
-  mod.exports.getVisualDiveMarkers = function(mapId) return surfaceDiveMarkers:cellsFor(mapId) end
+  mod.exports.getVisualDiveMarkers = function() return {} end
+  mod.exports.submergedWarpStats = function() return submergedWarpLinks:stats() end
   mod.exports.currentDistrict = function()
     return sceneGameplay.districtId, sceneGameplay.districtName
   end
