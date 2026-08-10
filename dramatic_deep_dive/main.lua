@@ -30,7 +30,6 @@ return function(mod)
   local FollowerSprites = loadModule(mod, "src/FollowerSprites.lua")
   local FollowerBridge = loadModule(mod, "src/FollowerBridge.lua")
   local UpdateHookGuard = loadModule(mod, "src/UpdateHookGuard.lua")
-  local TransitionWatchdog = loadModule(mod, "src/TransitionWatchdog.lua")
   local DiveTravel = loadModule(mod, "src/DiveTravel.lua")
   local SurfaceDiveMarkers = loadModule(mod, "src/SurfaceDiveMarkers.lua")
   local Progression = loadModule(mod, "src/Progression.lua")
@@ -55,7 +54,7 @@ return function(mod)
   if not (Content and VoxelProvider and Crystal251Compat and JohtoWaterMoves
       and HMForgetGuard and HMShowcase and MountPolicy and VolumeRegistry
       and FollowerSprites and FollowerBridge and UpdateHookGuard
-      and TransitionWatchdog and DiveTravel and SurfaceDiveMarkers
+      and DiveTravel and SurfaceDiveMarkers
       and Progression and DeepDive and SceneDecor and SetpieceDecor
       and SceneGameplay and UnderwaterLighting and SubmergedTransitionGuard
       and DiveTransition and DepthEncounters and Salvage and AmbientLOD
@@ -172,7 +171,17 @@ return function(mod)
   local ambientLOD = AmbientLOD.new(mod, sceneDecor)
 
   controller.travel = travel
-  travel:setTransition(diveTransition)
+
+  -- Wilds of Kanto can replace the overworld update chain while a staged
+  -- transition is waiting for its next frame. In that environment use the
+  -- direct, engine-native warp path; Deep Dive activation still happens from
+  -- map/entered events, but no input lock depends on another update tick.
+  local wildsInstalled = false
+  if mod.find then
+    local okFind, handle = pcall(mod.find, mod, "overworld_wild_spawns")
+    wildsInstalled = okFind and handle ~= nil
+  end
+  if not wildsInstalled then travel:setTransition(diveTransition) end
   voxelRenderer:setController(controller)
 
   travel:install()
@@ -187,7 +196,6 @@ return function(mod)
   salvage:install()
   diveTransition:install()
   local updateHookGuard = UpdateHookGuard.install(mod, controller)
-  TransitionWatchdog.install(mod, diveTransition, updateHookGuard)
 
   mod.exports.voxelProvider = function() return voxelProvider:id(), voxelProvider:pipelineId() end
   mod.exports.isActive = function() return controller:isActive() end
