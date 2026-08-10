@@ -36,15 +36,12 @@ When Crystal 251 is absent, Deep Dive supplies the moves, HM items and standalon
 
 The public exports `registerWhirlpool`, `registerWaterfall`, `canWhirlpoolHere` and `canWaterfallHere` let other map/content mods add compatible field-move regions.
 
-## In-game HM showcase
+## In-game WHIRLPOOL / WATERFALL showcase
 
-The Wilds compatibility branch contains one field example for each of the three water HMs. The first time a save enters each route, a short in-game message identifies the local test.
+DIVE keeps its existing in-game presentation unchanged. The Wilds compatibility branch adds only two new field examples for the Crystal mechanics. The first time a save enters each route, a short in-game message identifies the local test.
 
-- **Route 19 — HM08 DIVE:** Two 4×4 reef entrances at the southern end of Route 19 lead to `DDD_ROUTE19_REEF_PASSAGE`. Surf onto the DIVE water, choose DIVE from the party, then explore the area using Deep Dive's free-depth movement before surfacing through a linked cell.
 - **Route 20 — HM06 WHIRLPOOL:** The Seafoam channel has a whirlpool spanning `x=49..50`, covering the full 4-cell channel height. It physically blocks Surf travel until WHIRLPOOL is used while facing it.
 - **Route 21 — HM07 WATERFALL:** The central Route 21 current has a 14-cell-wide waterfall at `y=50..51`. The player can descend through the current normally, but must use WATERFALL from below to return north.
-
-The three examples deliberately reuse the same sea routes as the native Deep Dive entrances so HM06, HM07 and HM08 form one continuous exploration loop rather than isolated test rooms.
 
 ## Underwater content
 
