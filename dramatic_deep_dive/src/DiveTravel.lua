@@ -39,7 +39,12 @@ local function insertBeforeStats(items, item)
 end
 
 function DiveTravel.new(mod, definitions)
-  return setmetatable({ mod = mod, zones = definitions or {}, transition = nil }, DiveTravel)
+  return setmetatable({
+    mod = mod,
+    zones = definitions or {},
+    transition = nil,
+    pendingDiveMapId = nil,
+  }, DiveTravel)
 end
 
 function DiveTravel:setTransition(transition)
@@ -172,8 +177,14 @@ function DiveTravel:beginDive(mon, game, zone, zoneId, position, target)
     self:setSurfing(game, true, false)
 
     local function doWarp()
+      -- map.entered fires before warpTo's onDone callback. Mark this exact
+      -- destination so the map-entered recovery path does not activate Deep
+      -- Dive while the engine is still constructing the new overworld. The
+      -- onDone callback is the single authoritative activation point.
+      self.pendingDiveMapId = target.mapId
       local ok, err = self.mod.world:warpTo(target.mapId, target.x, target.y,
         target.facing or position.facing, { onDone = function()
+          self.pendingDiveMapId = nil
           self:setSurfing(game, true, false)
           self.mod.events:emit("mod.dramatic_deep_dive.entered", {
             zoneId = zoneId, linkId = target.linkId,
@@ -181,6 +192,7 @@ function DiveTravel:beginDive(mon, game, zone, zoneId, position, target)
           })
         end })
       if not ok then
+        self.pendingDiveMapId = nil
         self:setSession(nil)
         self.mod.log:error("DIVE warp failed: %s", tostring(err))
         return false
@@ -266,18 +278,38 @@ function DiveTravel:install()
     local zone, zoneId = service:zoneForUnderwaterMap(event.mapId)
     if zone then
       local Game = require("src.core.Game")
-      service:setSurfing(Game, true, false)
-      local state = service:getSession()
-      if not (state and state.active) then
-        service:setSession({ active = true, zoneId = zoneId, orphaned = true })
-      else
+
+      -- During a DIVE warp, map.entered happens before warpTo:onDone. Do not
+      -- touch Surf presentation or activate the Deep Dive controller here;
+      -- the overworld is not fully settled yet. This was causing the entry
+      -- path to run twice and could crash during map construction.
+      if service.pendingDiveMapId == event.mapId then
+        local state = service:getSession() or { active = true }
+        state.active = true
         state.zoneId = zoneId
         state.mapId = event.mapId
         service:setSession(state)
+        return
       end
-      service.mod.events:emit("mod.dramatic_deep_dive.entered", { zoneId = zoneId, mapId = event.mapId })
+
+      -- Save/load, debug warp, or any non-DIVE entry has no onDone callback
+      -- owned by this service, so recover the underwater session here.
+      service:setSurfing(Game, true, false)
+      local state = service:getSession()
+      if not (state and state.active) then
+        state = { active = true, zoneId = zoneId, orphaned = true }
+      else
+        state.zoneId = zoneId
+        state.mapId = event.mapId
+      end
+      service:setSession(state)
+      service.mod.events:emit("mod.dramatic_deep_dive.entered", {
+        zoneId = zoneId,
+        mapId = event.mapId,
+      })
       return
     end
+
     local state = service:getSession()
     if state and state.active then service:setSession(nil) end
   end)
