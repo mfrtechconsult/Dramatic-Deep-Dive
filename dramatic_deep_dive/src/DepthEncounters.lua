@@ -29,12 +29,22 @@ function DepthEncounters:band(mapId, depth)
   return nil
 end
 
+function DepthEncounters:currentMapId()
+  local ow = Game and Game.overworld
+  local map = ow and ow.map
+  return map and map.id or nil
+end
+
+function DepthEncounters:isManagedUnderwaterMap(mapId)
+  mapId = mapId or self:currentMapId()
+  return type(mapId) == "string" and self.definitions[mapId] ~= nil
+end
+
 function DepthEncounters:currentBand()
   local state = self.controller and self.controller.state
-  local ow = Game.overworld
-  local map = ow and ow.map
-  if not (state and state.active and map) then return nil end
-  return self:band(map.id, state.depth), map.id
+  local mapId = self:currentMapId()
+  if not (state and state.active and mapId) then return nil end
+  return self:band(mapId, state.depth), mapId
 end
 
 function DepthEncounters:encounterDefinition(band)
@@ -69,12 +79,21 @@ function DepthEncounters:install()
   function Encounter.roll(encounterDef, rng)
     local service = Encounter.dramaticDeepDiveDepthEncounters
     if service then
+      local mapId = service:currentMapId()
+
+      -- Hard Wilds gate: as soon as the current map belongs to Deep Dive's
+      -- generated underwater encounter definitions, random encounters are
+      -- impossible. This check deliberately does not depend on controller
+      -- active state or the current depth band, so transition frames and band
+      -- edges cannot leak an invisible vanilla encounter through.
+      -- Visible wildlife interception starts battles directly and therefore
+      -- does not pass through Encounter.roll.
+      if service:wildsInstalled() and service:isManagedUnderwaterMap(mapId) then
+        return nil
+      end
+
       local band = service:currentBand()
       if band then
-        -- When Wilds of Kanto is active, Deep Dive becomes overworld-only:
-        -- visible underwater Pokemon remain, but random step encounters are
-        -- suppressed so exploration is never interrupted by invisible rolls.
-        if service:wildsInstalled() then return nil end
         local encounter = innerRoll(service:encounterDefinition(band), rng)
         if encounter and service.wildlife and service.wildlife.consumeNearby then
           pcall(service.wildlife.consumeNearby, service.wildlife, encounter.species)
