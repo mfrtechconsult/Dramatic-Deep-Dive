@@ -25,6 +25,8 @@ jobs:
         run: lua5.4 dramatic_deep_dive/tools/test_seabed_audit.lua
       - name: Test bridges docks and pontoons over continuous water
         run: lua5.4 dramatic_deep_dive/tools/test_overwater_hydrology.lua
+      - name: Test wide open-ocean scaling
+        run: lua5.4 dramatic_deep_dive/tools/test_ocean_space_expander.lua
       - name: Test Wilds visible-only underwater encounters
         run: lua5.4 dramatic_deep_dive/tools/test_wilds_overworld_only.lua
       - name: Test surface-aware seabed landmarks
