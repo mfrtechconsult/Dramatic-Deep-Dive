@@ -6,6 +6,24 @@ local function uniform(tile)
   return row
 end
 
+-- Blocks 16..31 encode the exact 2x2 movement-cell water mask for one
+-- 32x32 map block. Each movement cell is rendered as a uniform 2x2 tile
+-- quadrant: tile 0 is underwater/passable water, tile 15 is solid seabed
+-- boundary. This lets generated maps preserve arbitrary Kanto coastlines at
+-- the engine's native 16x16 movement-cell resolution.
+local function collisionMaskBlock(mask)
+  local block = {}
+  for ty = 0, 3 do
+    for tx = 0, 3 do
+      local cellX, cellY = math.floor(tx / 2), math.floor(ty / 2)
+      local bit = cellY == 0 and (cellX == 0 and 1 or 2)
+        or (cellX == 0 and 4 or 8)
+      block[#block + 1] = (mask % (bit * 2) >= bit) and 0 or 15
+    end
+  end
+  return block
+end
+
 local function loadLua(mod, relativePath)
   local source, readError = mod:read(relativePath)
   if not source then return nil, readError end
@@ -32,18 +50,6 @@ local function appendUnique(list, value)
   return out
 end
 
-local function registerMapDefinition(mod, spec)
-  local map, mapError = loadLua(mod, spec.file)
-  if not map then
-    mod.log:error("Could not load underwater map %s: %s", tostring(spec.file), tostring(mapError))
-    return nil
-  end
-  if not mod.content.maps:get(map.id) then mod.content.maps:register(map.id, map) end
-  if spec.song then mod.content.map_songs:register(map.id, spec.song) end
-  if spec.encounters then mod.content.encounters:register(map.id, spec.encounters) end
-  return map
-end
-
 -- Independent, idempotent public contract. Deep Dive provides DIVE/HM_DIVE
 -- itself and only reuses an already-registered generic record when present.
 function Content.ensureDiveContract(mod)
@@ -66,8 +72,6 @@ function Content.ensureDiveContract(mod)
       mod.log:error("HM_DIVE exists but does not teach DIVE")
       return nil
     end
-    -- The stable item/move ids are authoritative. Numerical HM slot is only
-    -- presentation, and the canonical presentation is HM08.
     if existingItem.name ~= "HM08" or tonumber(machine.number) ~= 8 then
       mod.content.items:patch("HM_DIVE", { name = "HM08", machine = { number = 8 } })
     end
@@ -95,7 +99,6 @@ function Content.register(mod)
   for _, speciesId in ipairs(compatibility) do
     local species = mod.content.pokemon:get(speciesId)
     if species and not contains(species.tmhm, "DIVE") then
-      -- Additive list merge: never replace another mod's complete TM/HM list.
       mod.content.pokemon:patch(speciesId, { tmhm = { __append = { "DIVE" } } })
     end
   end
@@ -109,6 +112,7 @@ function Content.register(mod)
     uniform(8), uniform(9), uniform(10), uniform(11),
     uniform(12), uniform(13), uniform(14), uniform(15),
   }
+  for mask = 0, 15 do blocks[#blocks + 1] = collisionMaskBlock(mask) end
 
   if not mod.content.tilesets:get("DDD_UNDERWATER") then
     mod.content.tilesets:register("DDD_UNDERWATER", {
@@ -117,19 +121,11 @@ function Content.register(mod)
       imageWidth = 64, imageHeight = 32, tilesPerRow = 8,
       blocks = blocks, walkable = {}, warpTiles = { 6 },
       waterTiles = { 0, 1, 3, 4, 6, 7, 8, 9, 11, 12, 13, 14 },
-      shoreTiles = {}, grassTile = 8, trueColor = true,
+      shoreTiles = {}, grassTile = 0, trueColor = true,
     })
   end
 
-  -- Deep Dive owns and registers its complete DDD_* underwater content.
-  local maps, mapsError = loadLua(mod, "data/maps.lua")
-  if not maps then
-    mod.log:error("Could not load underwater map registry: %s", tostring(mapsError))
-    return nil
-  end
-  for _, spec in ipairs(maps) do
-    if not registerMapDefinition(mod, spec) then return nil end
-  end
+  -- Runtime Kanto atlas generation replaces the previous static DDD_* maps.
   return true
 end
 
