@@ -19,6 +19,10 @@ local FLOOR_COLORS = {
   marsh = { 0.25, 0.27, 0.18 },
 }
 
+local function cellKey(x, y)
+  return tostring(x) .. ":" .. tostring(y)
+end
+
 local function addVertex(out, x, y, z, u, v, shade)
   out[#out + 1] = { x, y, z, u or 0, v or 0, shade or 1 }
 end
@@ -189,6 +193,8 @@ local function addGeneratedGeometry(renderer, volume, floorVertices, waterVertic
           local nx, ny = x + dir.dx, y + dir.dy
           local outside = nx < 0 or ny < 0 or nx >= width or ny >= height
           local neighborDepth = not outside and renderer.registry:floorDepthAt(volume.mapId, nx, ny) or nil
+          local edgeMask = volume.connectedEdgeCells and volume.connectedEdgeCells[dir.name]
+          local connectedHere = edgeMask and edgeMask[cellKey(x, y)] == true
 
           local x0, z0, x1, z1
           if dir.name == "north" then x0,z0,x1,z1 = x*CELL,y*CELL,(x+1)*CELL,y*CELL
@@ -201,8 +207,8 @@ local function addGeneratedGeometry(renderer, volume, floorVertices, waterVertic
             if neighborY < floorY - 0.01 then
               addWall(floorVertices, x0, z0, x1, z1, neighborY, floorY, 0.72)
             end
-          elseif outside and volume.connectedEdges and volume.connectedEdges[dir.name] then
-            -- Connected generated map continues the ocean here: leave it open.
+          elseif outside and connectedHere then
+            -- Only this exact water cell continues into the generated neighbor.
           elseif outside then
             addWall(abyssVertices, x0, z0, x1, z1,
               floorY - WALL_DROP, surfaceY + CEILING_LIFT, 0.60)
