@@ -24,6 +24,7 @@ return function(mod)
   local Crystal251Compat = loadModule(mod, "src/Crystal251Compat.lua")
   local JohtoWaterMoves = loadModule(mod, "src/JohtoWaterMoves.lua")
   local HMForgetGuard = loadModule(mod, "src/HMForgetGuard.lua")
+  local HMShowcase = loadModule(mod, "src/HMShowcase.lua")
   local MountPolicy = loadModule(mod, "src/MountPolicy.lua")
   local VolumeRegistry = loadModule(mod, "src/VolumeRegistry.lua")
   local FollowerSprites = loadModule(mod, "src/FollowerSprites.lua")
@@ -50,13 +51,14 @@ return function(mod)
   local salvageDefinitions = loadModule(mod, "data/salvage.lua")
 
   if not (Content and VoxelProvider and Crystal251Compat and JohtoWaterMoves
-      and HMForgetGuard and MountPolicy and VolumeRegistry and FollowerSprites
-      and FollowerBridge and UpdateHookGuard and DiveTravel and Progression
-      and DeepDive and SceneDecor and SetpieceDecor and SceneGameplay
-      and UnderwaterLighting and SubmergedTransitionGuard and DiveTransition
-      and DepthEncounters and Salvage and AmbientLOD and VoxelRenderer
-      and volumeDefinitions and diveDefinitions and sceneDefinitions
-      and setpieceDefinitions and depthEncounterDefinitions and salvageDefinitions) then
+      and HMForgetGuard and HMShowcase and MountPolicy and VolumeRegistry
+      and FollowerSprites and FollowerBridge and UpdateHookGuard and DiveTravel
+      and Progression and DeepDive and SceneDecor and SetpieceDecor
+      and SceneGameplay and UnderwaterLighting and SubmergedTransitionGuard
+      and DiveTransition and DepthEncounters and Salvage and AmbientLOD
+      and VoxelRenderer and volumeDefinitions and diveDefinitions
+      and sceneDefinitions and setpieceDefinitions and depthEncounterDefinitions
+      and salvageDefinitions) then
     return
   end
 
@@ -82,6 +84,24 @@ return function(mod)
     },
   })
   if not johtoWater or not HMForgetGuard.install(mod) then return end
+
+  HMShowcase.install(mod, {
+    ROUTE_19 = {
+      id = "hm08_dive_route19",
+      move = "DIVE",
+      text = "HM08 DIVE TEST\nDark water marks a\nDIVE entry point.\fSurf onto it and use\nDIVE from the party.",
+    },
+    ROUTE_20 = {
+      id = "hm06_whirlpool_route20",
+      move = "WHIRLPOOL",
+      text = "HM06 WHIRLPOOL TEST\nA whirlpool blocks the\nSeafoam channel.\fFace it while SURFing\nand use WHIRLPOOL.",
+    },
+    ROUTE_21 = {
+      id = "hm07_waterfall_route21",
+      move = "WATERFALL",
+      text = "HM07 WATERFALL TEST\nA waterfall blocks the\ncentral current.\fDescend freely, then\nuse WATERFALL to climb.",
+    },
+  })
 
   local voxelProvider = VoxelProvider.new(mod)
   if not voxelProvider:discover() then return end
