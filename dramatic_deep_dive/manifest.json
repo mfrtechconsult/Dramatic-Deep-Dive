@@ -1,7 +1,7 @@
 {
   "id": "DRAMATIC_DEEP_DIVE",
   "name": "Dramatic Deep Dive",
-  "version": "0.4.0-alpha.7",
+  "version": "0.4.0-alpha.11",
   "api": 2,
   "entry": "main.lua",
   "profile": "content",
@@ -12,6 +12,7 @@
   "optional_dependencies": [
     "PokePCFollowers_VoxelMerge",
     "overworld_wild_spawns",
+    "wild_skies",
     "DRAMALESS_SHAPE",
     "BATTLE_ART_VOXEL_FORK@>=1.7.6 <2.0.0",
     "DRAMATIC_SKY_RIDE@>=0.1.1 <2.0.0",
@@ -23,6 +24,6 @@
     "filesystem"
   ],
   "affects_link": true,
-  "description": "Diagnostic travel-only Deep Dive build with validated Kanto-style surface tint and a single post-warp underwater activation path. Advanced Voxel/free-depth runtime remains isolated while entry crashes are diagnosed.",
+  "description": "Full Dramatic Deep Dive runtime with ocean-scale swim spaces, much deeper vertical columns, low encounter frequency, strict event namespaces, and a non-invasive Sky/Wilds compatibility path that avoids circular overworld update wrappers.",
   "github": "mfrtechconsult/Dramatic-Deep-Dive"
 }
