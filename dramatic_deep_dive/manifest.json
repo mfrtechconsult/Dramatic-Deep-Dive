@@ -1,7 +1,7 @@
 {
   "id": "DRAMATIC_DEEP_DIVE",
   "name": "Dramatic Deep Dive",
-  "version": "0.4.0",
+  "version": "0.5.0-alpha.1",
   "api": 2,
   "entry": "main.lua",
   "profile": "content",
@@ -24,6 +24,6 @@
     "filesystem"
   ],
   "affects_link": true,
-  "description": "Dramatic Deep Dive 0.4.0: ocean-scale 3D underwater exploration with free depth, living Pokedex-scaled Pokemon, forgiving visible encounters, Wilds/Sky compatibility, salvage, abyss scenery, HM08 DIVE, HM06 WHIRLPOOL and HM07 WATERFALL.",
+  "description": "Dramatic Deep Dive 0.5.0 development: generated full-Kanto seabed atlas, seamless underwater map connections, continuous shore-derived depth, living Pokedex-scaled Pokemon, Wilds/Sky compatibility and HM08 DIVE.",
   "github": "mfrtechconsult/Dramatic-Deep-Dive"
 }
