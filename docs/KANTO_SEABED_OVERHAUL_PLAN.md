@@ -8,11 +8,41 @@ Every meaningful water body in Kanto must have a coherent seabed representation.
 
 The released `0.4.0` main branch remains the stable reference. All work happens on `dev/kanto-seabed-overhaul` until the new coverage is complete and validated.
 
+## Current implementation status
+
+### Implemented
+
+- Previous four handcrafted underwater maps removed from the development branch.
+- Runtime `KantoWaterAtlas` scans actual map definitions with `Map.defIsWaterCell`.
+- Connected water bodies can span normal surface-map connections.
+- Underwater seams are generated only where both connected border cells are water.
+- Shore distance is computed globally across connected maps.
+- Seabed depth is synthesized from shore distance and reconciled at map seams.
+- One generated `DDD_SEABED_<SURFACE_MAP>` map is created for each detected water-bearing Kanto map.
+- Generated DIVE/SURFACE row-runs cover the source water mask at identity coordinates.
+- Underwater map transitions preserve active depth, target depth, mount and camera state.
+- Biome profiles exist for coastal, ocean, harbor, volcanic, cave, freshwater and marsh environments.
+- Visible ecology and encounter bands are generated from biome/depth data.
+- A surface-aware landmark pass now derives structures from valid atlas water cells.
+- Vermilion receives harbor support/debris identity.
+- Cinnabar receives volcanic spires and thermal bubble vents.
+- Seafoam maps receive dark cave formations plus ice/crystal vertical landmarks.
+- Pallet, Route 19/20/21, Safari, freshwater and generic coastal/ocean maps receive profile-specific baseline identity.
+- Headless contract tests cover atlas topology/seams and generated landmark placement.
+
+### Next
+
+- Validate the generated atlas against the real imported Kanto dataset through PR CI/runtime.
+- Add stronger surface landmark correspondence using surface blocks/objects where reliable (dock footprints, bridge supports, cliff continuation and cave-mouth anchors).
+- Add authored exceptions for special map topology that should not use default identity mapping.
+- Add full coverage reporting and a strict CI allowlist for decorative/non-navigable water.
+- Add salvage and unique points of interest only after topology and landmark correspondence are stable.
+
 ## Core design rule
 
 The new system must not rely on a manually maintained list of a few DIVE rectangles.
 
-A Kanto water atlas will scan the actual loaded map definitions with the engine water-cell rules and produce an exhaustive inventory of water cells and connected water bodies. Authoring data then adds biome, depth and landmark identity on top of that generated topology.
+A Kanto water atlas scans the actual loaded map definitions with the engine water-cell rules and produces an exhaustive inventory of water cells and connected water bodies. Authoring data then adds biome, depth and landmark identity on top of that generated topology.
 
 This gives two guarantees:
 
@@ -150,7 +180,7 @@ Examples:
 - major islands create submerged slopes rather than abrupt flat borders;
 - authored landmarks can place wrecks, ruins, vents, arches or caves only where they fit the surface context.
 
-A landmark-anchor data layer will reference surface coordinates so the underwater version stays spatially coherent.
+A landmark-anchor data layer references surface coordinates/topology so the underwater version stays spatially coherent. The first pass already places all generated landmarks on actual atlas water cells and chooses shore/deep candidates from the real water topology. Later passes will add stronger direct correspondence to surface blocks/objects.
 
 ## Phase 7 — Seamless underwater Kanto network
 
@@ -212,24 +242,20 @@ Add automated checks for:
 - no missing volume for generated underwater maps;
 - no impossible floor/ceiling ranges;
 - spawn positions inside valid swim volumes;
+- generated landmark anchors remain inside atlas water masks;
 - no invalid event namespaces;
 - compatibility with Wilds of Kanto, Wild Skies, Dramatic Sky Ride, Battle Art Voxel Fork, Dramaless Shape and Crystal 251;
 - launcher-ready packaging.
 
 ## Delivery order
 
-1. Water atlas + coverage report.
-2. Generic seabed generator + identity DIVE mapping.
-3. Seamless underwater map connections.
-4. Depth synthesis.
-5. Three representative biome validation maps: quiet coast, harbor, cave/deep ocean.
-6. Generate every remaining Kanto water-bearing map.
-7. Biome/landmark polish pass across all Kanto.
-8. Ecology integration across all maps.
-9. Salvage/POI pass.
-10. Full compatibility/performance validation.
-11. Release candidate.
-
-## Definition of done
-
-The overhaul is complete only when the automated atlas can demonstrate that every gameplay-relevant Kanto water cell has a corresponding seabed, every reachable water network can be explored coherently underwater, and the visual identity of each submerged area clearly reflects the route, city, cave or landmark above it.
+1. Water atlas and seam topology.
+2. Generated underwater maps and identity DIVE/SURFACE mapping.
+3. Seam-safe depth synthesis and travel handoff.
+4. Biome and ecology baseline.
+5. Surface-aware landmark identity.
+6. Real-Kanto runtime/CI validation and special-map exception list.
+7. Stronger dock/bridge/cliff/cave-mouth correspondence.
+8. Salvage, unique POIs and exploration rewards.
+9. Full regression/coverage audit.
+10. Testable launcher-ready development release.
