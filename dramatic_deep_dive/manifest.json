@@ -1,7 +1,7 @@
 {
   "id": "DRAMATIC_DEEP_DIVE",
   "name": "Dramatic Deep Dive",
-  "version": "0.4.0-alpha.5",
+  "version": "0.4.0-alpha.6",
   "api": 2,
   "entry": "main.lua",
   "profile": "content",
@@ -23,6 +23,6 @@
     "filesystem"
   ],
   "affects_link": true,
-  "description": "Independent HM08 DIVE and Voxel/free-depth underwater exploration, now with Crystal-style HM06 WHIRLPOOL and HM07 WATERFALL field mechanics, standalone acquisition, optional Crystal 251 interoperability, Wilds-safe direct dive transitions, and Kanto-style surface DIVE tinting.",
+  "description": "Diagnostic travel-only Deep Dive build: validated Kanto-style surface tint, DIVE/SURFACE warp and underwater maps retained while advanced Voxel/free-depth runtime activation is temporarily isolated.",
   "github": "mfrtechconsult/Dramatic-Deep-Dive"
 }
