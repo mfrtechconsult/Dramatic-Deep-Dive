@@ -16,11 +16,25 @@ There is no cross-mod map handoff, event bridge, zone aliasing or ecology sharin
 
 ## HM08 DIVE
 
-Deep Dive can provide the complete DIVE contract by itself. If the generic `DIVE` move or `HM_DIVE` record already exists in the game data, Deep Dive reuses the same stable ids rather than creating a duplicate record, but it performs no mod discovery to determine who registered them.
+Deep Dive can provide the complete DIVE contract by itself. If the generic `DIVE` move or `HM_DIVE` record already exists in the game data, Deep Dive reuses the same stable ids rather than creating a duplicate record.
 
 The visible machine number is always **HM08**.
 
 A historical Deep Dive receipt key from earlier alpha saves is retained internally so existing Deep Dive saves keep their progression. It is not used for presentation.
+
+## HM06 WHIRLPOOL and HM07 WATERFALL
+
+The Wilds compatibility branch also provides the two Crystal water HMs as standalone Gen1Recomp mechanics:
+
+- **HM06 WHIRLPOOL** uses the Generation II move (`15` power, `70` accuracy, `15` PP) and removes authored whirlpool barriers for the current map visit, like Crystal.
+- **HM07 WATERFALL** uses the Generation II move (`80` power, `100` accuracy, `15` PP), allows climbing authored waterfalls while descending remains free, like Crystal.
+- Generation I compatibility follows Pokémon Crystal's HM learnsets.
+- Extended HMs are protected from move deletion.
+- Kanto uses the 7th/8th Kanto badges (`VOLCANOBADGE` / `EARTHBADGE`) as progression equivalents for Crystal's 7th/8th badge field-move gates.
+
+When Crystal 251 is absent, Deep Dive supplies the moves, HM items and standalone Kanto acquisition points. When Crystal 251 is installed, its `WHIRLPOOL`, `WATERFALL`, `HM_06`, `HM_07` and imported Pokémon compatibility are reused instead of duplicated.
+
+The public exports `registerWhirlpool`, `registerWaterfall`, `canWhirlpoolHere` and `canWaterfallHere` let other map/content mods add compatible field-move regions.
 
 ## Underwater content
 
@@ -37,7 +51,7 @@ All travel, depth volumes, scenery, setpieces, encounters and salvage for those 
 
 Crystal 251 is optional. When installed, Deep Dive additively enables DIVE for the canonical Generation II R/S/E-compatible species without replacing Crystal's complete TM/HM lists.
 
-Supported field-move compatibility:
+Supported DIVE compatibility:
 
 `TOTODILE`, `CROCONAW`, `FERALIGATR`, `CHINCHOU`, `LANTURN`, `MARILL`, `AZUMARILL`, `POLITOED`, `WOOPER`, `QUAGSIRE`, `SLOWKING`, `QWILFISH`, `REMORAID`, `OCTILLERY`, `MANTINE`, `KINGDRA`, `SUICUNE`, `LUGIA`.
 
