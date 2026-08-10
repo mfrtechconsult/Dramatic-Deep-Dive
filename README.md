@@ -2,11 +2,17 @@
 
 Dramatic Deep Dive is an **independent HM08 DIVE and free-depth underwater gameplay mod for Gen1Recomp**.
 
-The `0.5.0-alpha.2` development line replaces the old handful of handcrafted underwater maps with a **generated full-Kanto seabed network**. The rule is now simple:
+The `0.5.0-alpha.3` development line replaces the old handful of handcrafted underwater maps with a **generated full-Kanto seabed network**.
 
-> **If Gen1Recomp considers a Kanto movement cell to be water, Dramatic Deep Dive gives that cell an underwater counterpart.**
+The surface rule is simple:
 
-The surface DIVE dark-water mask has therefore been removed. There is no longer a special painted subset of water to look for: **water itself is the DIVE area**.
+> **If Gen1Recomp considers a Kanto movement cell to be water, that cell is a valid DIVE/SURFACE point.**
+
+The underwater rule is slightly broader:
+
+> **Bridges, docks and pontoons may be solid/walkable on the surface while the water body and seabed continue underneath them.**
+
+The surface DIVE dark-water mask has therefore been removed. There is no longer a special painted subset of water to look for: real surface water itself is the DIVE area.
 
 ## Full-Kanto seabed atlas
 
@@ -14,24 +20,45 @@ At startup, Deep Dive builds a Kanto Water Atlas from the real game data and `Ma
 
 For every water-bearing surface map it records:
 
-- every water movement cell at the engine's native 16x16 movement-grid resolution;
-- connected bodies of water, including bodies that cross normal map connections;
-- shoreline distance across the whole connected water network;
+- every real surface-water movement cell at the engine's native 16x16 movement-grid resolution;
+- inferred water underneath over-water structures such as narrow bridges, docks and pontoons;
+- connected bodies of underwater water, including bodies that cross normal map connections;
+- shoreline distance across the whole connected underwater network;
 - exact water-to-water cells at each map border;
-- a generated seabed depth for every water cell;
+- a generated seabed depth for every underwater hydrology cell;
 - an underwater map id: `DDD_SEABED_<SURFACE_MAP>`.
 
-A generated underwater map preserves the surface water topology exactly. Surface land does not silently become swimmable underwater.
+Surface collision and underwater hydrology are intentionally separate. Normal land remains solid underwater, but a surface structure which is demonstrably built across water no longer creates an artificial seabed wall.
 
-## Every water cell is diveable
+### Bridges, docks and pontoons
 
-DIVE/SURFACE links are generated directly from the atlas as identity-coordinate row runs.
+The atlas uses two masks:
+
+1. **surface water** — the real Gen1Recomp water mask; this controls where DIVE and SURFACE are allowed;
+2. **underwater hydrology** — surface water plus cells inferred to contain water beneath an over-water structure; this controls underwater collision, bathymetry and connectivity.
+
+Generic Kanto bridge/pontoon strips are inferred when a short walkable surface gap is bounded by water on opposite sides. The inference is deliberately limited to small spans so broad land masses are not flooded accidentally.
+
+`SHIP_PORT` also receives an explicit rule for the S.S. Anne boarding platform: Gen1Recomp intentionally classifies tile `$32` as land on that tileset, but Deep Dive preserves harbor water beneath the platform.
+
+Consequences:
+
+- the player cannot DIVE from a pontoon;
+- the player cannot SURFACE through a pontoon;
+- the player can swim underneath that pontoon;
+- water on the two sides belongs to the same underwater body when the structure is genuinely over water;
+- real causeways/solid land remain underwater barriers.
+
+## Every real water cell is diveable
+
+DIVE/SURFACE links are generated directly from the **surface-water** mask as identity-coordinate row runs.
 
 In normal use:
 
 - surface `(map, x, y)` -> DIVE -> `DDD_SEABED_<map>` at `(x, y)`;
-- underwater `(x, y)` -> SURFACE -> the same surface `(x, y)`;
-- all detected surface water cells are covered;
+- underwater `(x, y)` -> SURFACE -> the same surface `(x, y)` when that surface cell is real water;
+- all detected surface-water cells are covered;
+- inferred under-bridge/under-pier cells are underwater-only and are not surface entry/exit points;
 - no visual DIVE mask is rendered;
 - the functional water-cell index remains available to compatibility/debug exports.
 
@@ -39,7 +66,7 @@ DIVE still requires the normal Deep Dive progression contract: HM08 DIVE, a comp
 
 ## Seamless underwater Kanto
 
-Normal Kanto map connections are mirrored underwater whenever the two connected border cells are actually water on both maps.
+Normal Kanto map connections are mirrored underwater whenever the two connected border cells belong to the same underwater hydrology network.
 
 This means connected seas and waterways can continue beneath route boundaries without forcing the player to surface first.
 
@@ -51,7 +78,7 @@ The seam system preserves:
 - free-camera state;
 - the normal Deep Dive runtime.
 
-Seam openings are tracked **cell by cell**. A route connection no longer opens an entire visual wall merely because one water cell connects: only the exact water-to-water border cells are left open.
+Seam openings are tracked **cell by cell**. A route connection does not open an entire visual wall merely because one water cell connects: only the exact connected border cells are left open.
 
 ## Submerged cave and harbor links
 
@@ -62,7 +89,7 @@ A submerged portal can be generated when both ends are semantically compatible:
 - cave -> cave;
 - harbor -> harbor.
 
-The surface warp and its destination are snapped to nearby valid water cells, then represented underwater by a visible arch/portal landmark. This is primarily intended for places such as Seafoam's multi-floor cave network and coherent harbor spaces.
+The surface warp and its destination are snapped to nearby valid underwater cells, then represented underwater by a visible arch/portal landmark. This is primarily intended for places such as Seafoam's multi-floor cave network and coherent harbor spaces.
 
 Unrelated doors are not converted into underwater portals. For example, a freshwater exterior door leading into a cave does not automatically become a submerged connection.
 
@@ -70,10 +97,11 @@ Unrelated doors are not converted into underwater portals. For example, a freshw
 
 The seabed is not a flat rectangle and depth is not assigned as a few abrupt authored boxes.
 
-Depth is derived from distance to the nearest shoreline across connected water maps:
+Depth is derived from distance to the nearest true underwater boundary across connected maps:
 
 - immediate shoreline cells are relatively shallow;
 - the floor falls away as the player moves farther from land;
+- bridges and pontoons no longer reset the shoreline calculation simply because their surface collision is land;
 - open sea becomes dramatically deeper than ponds or rivers;
 - neighboring map-border depths are reconciled so an underwater route transition does not create an artificial step;
 - biome-specific maximum depths keep freshwater, marsh, cave and ocean spaces distinct.
@@ -95,7 +123,7 @@ The generator covers every detected water map, but it does not make every seabed
 Regional profiles and landmark rules provide a coherent identity for the surface location above it. Examples include:
 
 - **Pallet Town** — shallow coastal shelf;
-- **Vermilion City / Vermilion Dock** — harbor supports, submerged debris and dock-linked structures;
+- **Vermilion City / Vermilion Dock** — harbor supports, submerged debris, dock-linked structures and continuous water beneath dock platforms;
 - **Cinnabar Island** — volcanic shelf, dark spires and thermal bubble vents;
 - **Routes 19 / 20 / 21** — large open-ocean spaces with the greatest depth range;
 - **Route 20 / Seafoam channel** — ocean geology tied into the Seafoam approaches;
@@ -104,7 +132,7 @@ Regional profiles and landmark rules provide a coherent identity for the surface
 - **Fuchsia / Safari areas** — marsh and wetland seabeds;
 - **Cerulean Cave, Rock Tunnel and Victory Road water** — cave-style underwater environments when water exists there.
 
-Map-specific rules never invent navigable water. They decorate only cells already proven to be water by the atlas.
+Map-specific rules never invent arbitrary ocean areas. The only non-surface-water cells admitted into the underwater mask are cells proven/inferred to belong below an over-water structure.
 
 ## Surface-aware landmarks
 
@@ -169,7 +197,7 @@ Without Wilds of Kanto, Deep Dive keeps low-frequency depth-based random encount
 
 ## Salvage across Kanto
 
-The generated seabed network now supports sparse procedural salvage rather than limiting exploration rewards to the old prototype maps.
+The generated seabed network supports sparse procedural salvage rather than limiting exploration rewards to the old prototype maps.
 
 Larger water bodies receive a small number of deterministic salvage signals, biased toward deeper/interior water. Tiny decorative pools receive no treasure spam.
 
@@ -184,14 +212,15 @@ The salvage tick uses the public fixed-step input hook rather than rewriting `Ov
 
 ## Underwater rendering
 
-The voxel renderer builds geometry directly from the generated water/depth masks.
+The voxel renderer builds geometry directly from the generated hydrology/depth masks.
 
 It includes:
 
 - one floor height per generated depth run;
 - vertical transitions between neighboring depth levels;
-- shoreline walls only where water meets non-water;
-- exact open map seams only where connected border water really continues;
+- shoreline walls only where underwater water really ends;
+- no artificial shoreline wall beneath inferred bridges, docks or pontoons;
+- exact open map seams only where connected border hydrology really continues;
 - dark-blue distant non-playable boundaries instead of a black void;
 - a blue overhead surface plane;
 - biome-specific seabed colors;
@@ -207,7 +236,7 @@ Deep Dive uses fixed-step input hooks so vertical swimming remains responsive ev
 - `L2` / `Page Down` — descend;
 - hold `B` — swim boost;
 - normal 1ST/3RD renderer movement — horizontal swimming;
-- `SURFACE` — return to the corresponding surface water cell.
+- `SURFACE` — return to the corresponding real surface-water cell.
 
 ## Dramatic Sky Ride / Wild Skies compatibility
 
@@ -217,7 +246,7 @@ The compatibility lessons from the `0.4.0` cycle remain enforced:
 
 - no `UpdateHookGuard`;
 - no `TransitionWatchdog`;
-- depth and new generated-world systems prefer public/fixed-step hooks;
+- depth and generated-world systems prefer public/fixed-step hooks;
 - DIVE/SURFACE cinematic staging is bypassed when a known conflicting Sky/Wilds composition is active;
 - the complete underwater runtime still activates after the safe warp.
 
@@ -247,12 +276,18 @@ The development branch has a dedicated **Kanto seabed contract** in addition to 
 Automated contracts verify:
 
 - atlas scanning and connected water bodies;
+- separate surface-water and underwater-hydrology masks;
+- bridge/pontoon inference for short walkable spans;
+- explicit `SHIP_PORT` boarding-platform hydrology;
+- solid/non-walkable causeways remain underwater barriers;
+- DIVE/SURFACE is not generated on inferred structure cells;
+- swimming remains valid below inferred structure cells;
 - reciprocal underwater route seams;
 - exact seam-cell masks, including preservation through volume registration;
 - seam depth reconciliation;
 - generated map block topology;
 - exact full-water coverage;
-- no generated swim/DIVE leakage onto surface land;
+- no generated DIVE leakage onto surface land;
 - surface-aware landmark placement;
 - surface warp/object anchors;
 - no legacy surface DIVE mask;
@@ -265,6 +300,6 @@ Automated contracts verify:
 
 ## Development status
 
-Current development preview: **0.5.0-alpha.2**.
+Current development preview: **0.5.0-alpha.3**.
 
 This branch is intended for full-Kanto gameplay testing. The published `main` release remains the stable `0.4.0` line until the overhaul is explicitly promoted after testing.
