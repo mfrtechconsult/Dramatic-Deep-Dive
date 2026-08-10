@@ -105,6 +105,11 @@ for id, definition in pairs(generated.volumes) do
   local volume, err = volumes:register(id, definition, "test")
   assert(volume, err)
 end
+local registeredA = volumes:get("atlas:ROUTE_TEST_A")
+assert(registeredA.connectedEdgeCells.east[key(3, 1)] == true,
+  "registered volume must preserve an exact connected edge cell")
+assert(registeredA.connectedEdgeCells.east[key(3, 0)] ~= true,
+  "registered volume must preserve a closed unmatched edge cell")
 assert(volumes:contains(mapA.id, 1, 1), "water cell must be swimmable")
 assert(not volumes:contains(mapA.id, 0, 0), "surface land cell must stay solid underwater")
 local near = volumes:floorDepthAt(mapA.id, 1, 0)
