@@ -74,6 +74,20 @@ local function rowContains(rows, x, y)
   return false
 end
 
+local function copyEdgeCellMasks(masks)
+  local out = {}
+  for direction, cells in pairs(type(masks) == "table" and masks or {}) do
+    if type(cells) == "table" then
+      local copy = {}
+      for key, connected in pairs(cells) do
+        if connected == true then copy[key] = true end
+      end
+      out[direction] = copy
+    end
+  end
+  return out
+end
+
 function VolumeRegistry.new(mod)
   return setmetatable({ mod = mod, byId = {}, byMap = {} }, VolumeRegistry)
 end
@@ -139,6 +153,7 @@ function VolumeRegistry:register(id, definition, owner)
     widthCells = number(definition.widthCells, nil),
     heightCells = number(definition.heightCells, nil),
     connectedEdges = definition.connectedEdges or {},
+    connectedEdgeCells = copyEdgeCellMasks(definition.connectedEdgeCells),
     swimVolumes = swimVolumes,
     cellRuns = cellRuns,
     depthZones = depthZones,
