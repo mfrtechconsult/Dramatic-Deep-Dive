@@ -10,9 +10,23 @@ local DIRS = {
   { name = "east", dx = 1, dy = 0 },
 }
 
+-- Surface collision and underwater hydrology are deliberately different.
+-- A bridge/pier/pontoon is solid or walkable on the surface, but water still
+-- exists underneath it.  Small walkable gaps between water cells are treated
+-- as over-water structures for the seabed mask while remaining non-DIVE cells
+-- on the surface.  Four movement cells is wide enough for Kanto's authored
+-- bridge/dock strips without broadly swallowing normal land masses.
+local MAX_OVERWATER_GAP = 4
+
 local function listSet(list)
   local out = {}
   for _, value in ipairs(list or {}) do out[value] = true end
+  return out
+end
+
+local function copySet(source)
+  local out = {}
+  for key, value in pairs(source or {}) do if value then out[key] = true end end
   return out
 end
 
@@ -61,7 +75,15 @@ function KantoWaterAtlas.new(mod, profileData)
     maps = {},
     byUnderwater = {},
     components = {},
-    stats = { maps = 0, waterCells = 0, components = 0, seams = 0 },
+    stats = {
+      maps = 0,
+      waterCells = 0,            -- legacy: real surface water cells
+      surfaceWaterCells = 0,
+      underStructureCells = 0,
+      seabedCells = 0,           -- surface water + inferred water below structures
+      components = 0,
+      seams = 0,
+    },
   }, KantoWaterAtlas)
 end
 
@@ -90,28 +112,133 @@ function KantoWaterAtlas:isCandidateMap(mapId, def, waterTilesets)
   return tileset and type(tileset.waterTiles) == "table" and #tileset.waterTiles > 0
 end
 
+local function walkable(entry, x, y)
+  if not (Map and type(Map.defIsWalkableCell) == "function") then return false end
+  local ok, value = pcall(Map.defIsWalkableCell, entry.def, entry.tileset, x, y)
+  return ok and value == true
+end
+
+function KantoWaterAtlas:markUnderStructure(entry, x, y, reason)
+  if x < 0 or y < 0 or x >= entry.width or y >= entry.height then return false end
+  local key = cellKey(x, y)
+  if entry.surfaceWater[key] or entry.underStructure[key] then return false end
+  entry.underStructure[key] = reason or true
+  entry.water[key] = true
+  entry.underStructureCount = entry.underStructureCount + 1
+  entry.waterCount = entry.waterCount + 1
+  return true
+end
+
+function KantoWaterAtlas:inferShipPortPlatforms(entry)
+  if entry.def.tileset ~= "SHIP_PORT" or not (Map and type(Map.defCellTile) == "function") then
+    return 0
+  end
+  local added = 0
+  for y = 0, entry.height - 1 do
+    for x = 0, entry.width - 1 do
+      local key = cellKey(x, y)
+      if not entry.surfaceWater[key] then
+        local ok, tile = pcall(Map.defCellTile, entry.def, entry.tileset, x, y)
+        -- Gen1Recomp intentionally excludes $32 from SHIP_PORT's water/shore
+        -- set because it is the S.S. Anne boarding platform. Hydrologically it
+        -- is still a dock built over the harbor, so the seabed continues below.
+        if ok and tile == 0x32 and self:markUnderStructure(entry, x, y, "ship_port_32") then
+          added = added + 1
+        end
+      end
+    end
+  end
+  return added
+end
+
+local function gapIsWalkable(entry, horizontal, fixed, first, last)
+  for value = first, last do
+    local x, y = horizontal and value or fixed, horizontal and fixed or value
+    if not walkable(entry, x, y) then return false end
+  end
+  return true
+end
+
+function KantoWaterAtlas:inferWalkableWaterGaps(entry)
+  local added = 0
+
+  local function scanLine(horizontal, fixed, length)
+    local pos = 0
+    while pos < length do
+      local x, y = horizontal and pos or fixed, horizontal and fixed or pos
+      if entry.water[cellKey(x, y)] then
+        pos = pos + 1
+      else
+        local first = pos
+        while pos < length do
+          x, y = horizontal and pos or fixed, horizontal and fixed or pos
+          if entry.water[cellKey(x, y)] then break end
+          pos = pos + 1
+        end
+        local last = pos - 1
+        local gap = last - first + 1
+        if first > 0 and pos < length and gap <= MAX_OVERWATER_GAP
+            and gapIsWalkable(entry, horizontal, fixed, first, last) then
+          local beforeX, beforeY = horizontal and (first - 1) or fixed,
+            horizontal and fixed or (first - 1)
+          local afterX, afterY = horizontal and pos or fixed,
+            horizontal and fixed or pos
+          if entry.water[cellKey(beforeX, beforeY)] and entry.water[cellKey(afterX, afterY)] then
+            for value = first, last do
+              x, y = horizontal and value or fixed, horizontal and fixed or value
+              if self:markUnderStructure(entry, x, y, horizontal and "bridge_h" or "bridge_v") then
+                added = added + 1
+              end
+            end
+          end
+        end
+      end
+    end
+  end
+
+  -- Two passes allow an L/T-shaped authored platform to be completed after
+  -- one axis has established hydrological continuity, while the strict small
+  -- gap + walkable requirement still prevents broad land from being flooded.
+  for _ = 1, 2 do
+    local before = added
+    for y = 0, entry.height - 1 do scanLine(true, y, entry.width) end
+    for x = 0, entry.width - 1 do scanLine(false, x, entry.height) end
+    if added == before then break end
+  end
+  return added
+end
+
+function KantoWaterAtlas:inferUnderStructureWater(entry)
+  self:inferShipPortPlatforms(entry)
+  self:inferWalkableWaterGaps(entry)
+end
+
 function KantoWaterAtlas:scanMap(mapId, def)
   local tileset = self.mod.content.tilesets:get(def.tileset)
   if not tileset then return nil end
   local width, height = def.width * 2, def.height * 2
-  local cells, count = {}, 0
+  local surfaceWater, count = {}, 0
   for y = 0, height - 1 do
     for x = 0, width - 1 do
       if Map.defIsWaterCell(def, tileset, x, y) == true then
-        cells[cellKey(x, y)] = true
+        surfaceWater[cellKey(x, y)] = true
         count = count + 1
       end
     end
   end
   if count == 0 then return nil end
   local profile, profileName = self:profile(mapId)
-  return {
+  local entry = {
     id = mapId,
     def = def,
     tileset = tileset,
     width = width,
     height = height,
-    water = cells,
+    surfaceWater = surfaceWater,
+    surfaceWaterCount = count,
+    underStructure = {},
+    underStructureCount = 0,
+    water = copySet(surfaceWater),
     waterCount = count,
     underwaterMapId = underwaterId(mapId),
     profile = profile,
@@ -121,6 +248,8 @@ function KantoWaterAtlas:scanMap(mapId, def)
     componentAt = {},
     seams = {},
   }
+  self:inferUnderStructureWater(entry)
+  return entry
 end
 
 function KantoWaterAtlas:step(mapId, x, y, direction)
@@ -153,6 +282,11 @@ function KantoWaterAtlas:isWater(mapId, x, y)
   return entry and entry.water[cellKey(x, y)] == true or false
 end
 
+function KantoWaterAtlas:isSurfaceWater(mapId, x, y)
+  local entry = self.maps[mapId]
+  return entry and entry.surfaceWater[cellKey(x, y)] == true or false
+end
+
 function KantoWaterAtlas:waterNeighbors(mapId, x, y)
   local out = {}
   for _, direction in ipairs(DIRS) do
@@ -167,9 +301,6 @@ end
 function KantoWaterAtlas:buildComponentsAndDistance()
   local queue, head = {}, 1
 
-  -- A water cell is shoreline if at least one cardinal neighbor is not a
-  -- connected water cell. Map connections are followed, so an ocean seam is
-  -- not mistaken for a coast merely because it crosses a map boundary.
   for mapId, entry in pairs(self.maps) do
     for key in pairs(entry.water) do
       local x, y = key:match("^(%-?%d+):(%-?%d+)$")
@@ -181,8 +312,6 @@ function KantoWaterAtlas:buildComponentsAndDistance()
     end
   end
 
-  -- Global multi-map distance transform. Crossing a connected route seam costs
-  -- one cell just like moving inside one map, which keeps depth continuous.
   while head <= #queue do
     local node = queue[head]; head = head + 1
     local entry = self.maps[node.mapId]
@@ -197,8 +326,6 @@ function KantoWaterAtlas:buildComponentsAndDistance()
     end
   end
 
-  -- Connected components also span map boundaries. This is useful for audits
-  -- and later biome/landmark authoring over one coherent ocean body.
   local componentId = 0
   for mapId, entry in pairs(self.maps) do
     for key in pairs(entry.water) do
@@ -286,8 +413,6 @@ function KantoWaterAtlas:buildDepths()
     end
   end
 
-  -- Exact seam reconciliation: connected border cells receive the same floor
-  -- depth even when their two maps use different biome profiles.
   for _ = 1, 2 do
     for mapId, entry in pairs(self.maps) do
       for _, direction in ipairs(DIRS) do
@@ -323,6 +448,7 @@ end
 
 function KantoWaterAtlas:finishRows()
   for _, entry in pairs(self.maps) do
+    entry.surfaceCellRuns = rowRuns(entry.surfaceWater, entry.width, entry.height)
     entry.cellRuns = rowRuns(entry.water, entry.width, entry.height)
     entry.depthRuns = rowRuns(entry.water, entry.width, entry.height, function(x, y)
       return entry.floorDepth[cellKey(x, y)]
@@ -349,7 +475,10 @@ function KantoWaterAtlas:build()
       self.maps[entry.id] = entry
       self.byUnderwater[entry.underwaterMapId] = entry
       self.stats.maps = self.stats.maps + 1
-      self.stats.waterCells = self.stats.waterCells + entry.waterCount
+      self.stats.surfaceWaterCells = self.stats.surfaceWaterCells + entry.surfaceWaterCount
+      self.stats.waterCells = self.stats.surfaceWaterCells
+      self.stats.underStructureCells = self.stats.underStructureCells + entry.underStructureCount
+      self.stats.seabedCells = self.stats.seabedCells + entry.waterCount
     end
   end
 
