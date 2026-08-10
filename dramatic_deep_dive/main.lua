@@ -45,6 +45,7 @@ return function(mod)
   local DiveTransition = loadModule(mod, "src/DiveTransition.lua")
   local DepthEncounters = loadModule(mod, "src/DepthEncounters.lua")
   local UnderwaterWildlife = loadModule(mod, "src/UnderwaterWildlife.lua")
+  local UnderwaterIntercept = loadModule(mod, "src/UnderwaterIntercept.lua")
   local Salvage = loadModule(mod, "src/Salvage.lua")
   local AmbientLOD = loadModule(mod, "src/AmbientLOD.lua")
   local VoxelRenderer = loadModule(mod, "src/VoxelRenderer.lua")
@@ -62,7 +63,7 @@ return function(mod)
       and DiveTravel and StableDepthTick and SurfaceDiveMarkers
       and Progression and DeepDive and SceneDecor and SetpieceDecor
       and SceneGameplay and UnderwaterLighting and SubmergedTransitionGuard
-      and DiveTransition and DepthEncounters and UnderwaterWildlife
+      and DiveTransition and DepthEncounters and UnderwaterWildlife and UnderwaterIntercept
       and Salvage and AmbientLOD
       and VoxelRenderer and volumeDefinitions and diveDefinitions
       and sceneDefinitions and setpieceDefinitions and depthEncounterDefinitions
@@ -175,6 +176,7 @@ return function(mod)
   local depthEncounters = DepthEncounters.new(mod, controller, depthEncounterDefinitions)
   local underwaterWildlife = UnderwaterWildlife.new(
     mod, controller, registry, sprites, depthEncounterDefinitions)
+  local underwaterIntercept = UnderwaterIntercept.new(mod, controller, underwaterWildlife)
   depthEncounters:setWildlife(underwaterWildlife)
   local salvage = Salvage.new(mod, controller, salvageDefinitions)
   local ambientLOD = AmbientLOD.new(mod, sceneDecor)
@@ -197,6 +199,7 @@ return function(mod)
   sceneGameplay:install()
   depthEncounters:install()
   underwaterWildlife:install()
+  underwaterIntercept:install()
   ambientLOD:install()
   salvage:install()
   diveTransition:install()
@@ -225,6 +228,7 @@ return function(mod)
     return band and band.id or nil, mapId
   end
   mod.exports.oceanLifeStats = function() return underwaterWildlife:stats() end
+  mod.exports.oceanInterceptStats = function() return underwaterIntercept:stats() end
   mod.exports.ambientLODStats = function() return ambientLOD:stats() end
   mod.exports.isTransitioning = function() return diveTransition:isActive() end
   mod.exports.salvageRemaining = function(mapId) return salvage:remaining(mapId) end
