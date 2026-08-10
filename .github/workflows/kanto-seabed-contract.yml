@@ -23,6 +23,8 @@ jobs:
         run: lua5.4 dramatic_deep_dive/tools/test_kanto_water_atlas.lua
       - name: Test exact full-water coverage audit
         run: lua5.4 dramatic_deep_dive/tools/test_seabed_audit.lua
+      - name: Test bridges docks and pontoons over continuous water
+        run: lua5.4 dramatic_deep_dive/tools/test_overwater_hydrology.lua
       - name: Test surface-aware seabed landmarks
         run: lua5.4 dramatic_deep_dive/tools/test_seabed_landmarks.lua
       - name: Test exact surface warp/object anchors
