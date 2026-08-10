@@ -4,6 +4,9 @@ local function loadModule(mod, relativePath)
     mod.log:error("Could not read %s: %s", relativePath, tostring(readError))
     return nil
   end
+  -- Gen1Recomp 0.1.75 enforces mod.<MANIFEST_ID>.* event namespaces.
+  -- Keep legacy source modules compatible while all event references migrate.
+  source = source:gsub("mod%.dramatic_deep_dive%.", "mod.DRAMATIC_DEEP_DIVE.")
   local compiler = loadstring or load
   local chunk, loadError = compiler(source, "@" .. mod.path .. "/" .. relativePath)
   if not chunk then
@@ -29,7 +32,6 @@ return function(mod)
   local VolumeRegistry = loadModule(mod, "src/VolumeRegistry.lua")
   local FollowerSprites = loadModule(mod, "src/FollowerSprites.lua")
   local FollowerBridge = loadModule(mod, "src/FollowerBridge.lua")
-  local UpdateHookGuard = loadModule(mod, "src/UpdateHookGuard.lua")
   local DiveTravel = loadModule(mod, "src/DiveTravel.lua")
   local SurfaceDiveMarkers = loadModule(mod, "src/SurfaceDiveMarkers.lua")
   local Progression = loadModule(mod, "src/Progression.lua")
@@ -53,7 +55,7 @@ return function(mod)
 
   if not (Content and VoxelProvider and Crystal251Compat and JohtoWaterMoves
       and HMForgetGuard and HMShowcase and MountPolicy and VolumeRegistry
-      and FollowerSprites and FollowerBridge and UpdateHookGuard
+      and FollowerSprites and FollowerBridge
       and DiveTravel and SurfaceDiveMarkers
       and Progression and DeepDive and SceneDecor and SetpieceDecor
       and SceneGameplay and UnderwaterLighting and SubmergedTransitionGuard
@@ -169,22 +171,31 @@ return function(mod)
   local ambientLOD = AmbientLOD.new(mod, sceneDecor)
 
   controller.travel = travel
+
+  -- Standalone keeps the cinematic. DiveTravel bypasses it at field-move time
+  -- whenever Wilds of Kanto or Wild Skies is actually loaded.
+  travel:setTransition(diveTransition)
   voxelRenderer:setController(controller)
 
-  -- Diagnostic travel-only mode. Keep the proven Kanto-style field-move path
-  -- and authored underwater maps, but do not activate the advanced Deep Dive
-  -- runtime yet. This isolates crashes caused by Voxel/free-depth/follower
-  -- activation from map loading and warp/session handling.
   travel:install()
+  transitionGuard:install()
   Progression.install(mod)
-  local updateHookGuard = nil
+  controller:install()
+  voxelRenderer:install()
+  underwaterLighting:install()
+  sceneGameplay:install()
+  depthEncounters:install()
+  ambientLOD:install()
+  salvage:install()
+  diveTransition:install()
+
+  -- Never rewrite/self-heal OverworldState.update here. Dramatic Sky Ride and
+  -- Wild Skies already compose cooperative wrappers. Re-targeting captured
+  -- update upvalues can create a circular DSR -> Wild Skies -> DSR chain.
 
   mod.exports.voxelProvider = function() return voxelProvider:id(), voxelProvider:pipelineId() end
-  mod.exports.isActive = function() return false end
-  mod.exports.isUnderwater = function()
-    local state = travel:getSession()
-    return state and state.active == true or false
-  end
+  mod.exports.isActive = function() return controller:isActive() end
+  mod.exports.isUnderwater = function() return controller:isActive() end
   mod.exports.currentDepth = function() return controller:currentDepth() end
   mod.exports.targetDepth = function() return controller:targetDepth() end
   mod.exports.currentVolume = function() return controller:currentVolume() end
@@ -202,7 +213,7 @@ return function(mod)
     return band and band.id or nil, mapId
   end
   mod.exports.ambientLODStats = function() return ambientLOD:stats() end
-  mod.exports.isTransitioning = function() return false end
+  mod.exports.isTransitioning = function() return diveTransition:isActive() end
   mod.exports.salvageRemaining = function(mapId) return salvage:remaining(mapId) end
   mod.exports.registerVolume = function(id, definition, owner)
     return registry:register(id, definition, owner or "external")
@@ -216,6 +227,7 @@ return function(mod)
 
   mod.exports.wildsCompatibility = {
     wildsId = "overworld_wild_spawns",
+    detected = function() return travel:wildsInstalled() end,
     hookGuardReady = false,
     ensureUpdateHook = nil,
     hookRecoveries = function() return 0 end,
