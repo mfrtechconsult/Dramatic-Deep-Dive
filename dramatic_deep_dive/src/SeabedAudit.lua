@@ -42,6 +42,9 @@ function SeabedAudit.validate(atlas, generated)
     ok = true,
     maps = 0,
     waterCells = 0,
+    surfaceWaterCells = 0,
+    underStructureCells = 0,
+    seabedCells = 0,
     diveCells = 0,
     volumeCells = 0,
     seams = 0,
@@ -58,7 +61,10 @@ function SeabedAudit.validate(atlas, generated)
   for _, surfaceId in ipairs(atlas:mapIds()) do
     local entry = atlas:surface(surfaceId)
     report.maps = report.maps + 1
-    report.waterCells = report.waterCells + (entry.waterCount or 0)
+    report.surfaceWaterCells = report.surfaceWaterCells + (entry.surfaceWaterCount or entry.waterCount or 0)
+    report.waterCells = report.surfaceWaterCells
+    report.underStructureCells = report.underStructureCells + (entry.underStructureCount or 0)
+    report.seabedCells = report.seabedCells + (entry.waterCount or 0)
 
     local zone = generated.dives and generated.dives["atlas:" .. surfaceId]
     local volume = generated.volumes and generated.volumes["atlas:" .. surfaceId]
@@ -86,7 +92,12 @@ function SeabedAudit.validate(atlas, generated)
       report.diveCells = report.diveCells + 1
       if diveSeen[key] then addError(report, surfaceId .. ": duplicate DIVE coverage at " .. key) end
       diveSeen[key] = true
-      if not entry.water[key] then addError(report, surfaceId .. ": DIVE link covers non-water cell " .. key) end
+      if not (entry.surfaceWater and entry.surfaceWater[key]) then
+        addError(report, surfaceId .. ": DIVE link covers non-surface-water cell " .. key)
+      end
+      if entry.underStructure and entry.underStructure[key] then
+        addError(report, surfaceId .. ": DIVE link incorrectly covers over-water structure cell " .. key)
+      end
       if sx ~= ux or sy ~= uy then
         addError(report, surfaceId .. ": generated DIVE link is not identity-mapped at " .. key)
       end
@@ -101,12 +112,24 @@ function SeabedAudit.validate(atlas, generated)
       report.volumeCells = report.volumeCells + 1
       if volumeSeen[key] then addError(report, surfaceId .. ": duplicate volume coverage at " .. key) end
       volumeSeen[key] = true
-      if not entry.water[key] then addError(report, surfaceId .. ": swim volume covers non-water cell " .. key) end
+      if not entry.water[key] then addError(report, surfaceId .. ": swim volume covers non-hydrology cell " .. key) end
     end)
 
+    for key in pairs(entry.surfaceWater or entry.water or {}) do
+      if not diveSeen[key] then addError(report, surfaceId .. ": surface water cell has no DIVE link at " .. key) end
+      if not volumeSeen[key] then addError(report, surfaceId .. ": surface water cell has no swim volume at " .. key) end
+    end
+
+    for key in pairs(entry.underStructure or {}) do
+      if diveSeen[key] then addError(report, surfaceId .. ": under-structure water unexpectedly has DIVE link at " .. key) end
+      if not volumeSeen[key] then addError(report, surfaceId .. ": under-structure water has no swim volume at " .. key) end
+      if entry.surfaceWater and entry.surfaceWater[key] then
+        addError(report, surfaceId .. ": cell is both surface water and under-structure water at " .. key)
+      end
+    end
+
     for key in pairs(entry.water or {}) do
-      if not diveSeen[key] then addError(report, surfaceId .. ": water cell has no DIVE link at " .. key) end
-      if not volumeSeen[key] then addError(report, surfaceId .. ": water cell has no swim volume at " .. key) end
+      if not volumeSeen[key] then addError(report, surfaceId .. ": hydrology cell has no swim volume at " .. key) end
       local depth = entry.floorDepth and entry.floorDepth[key]
       if not tonumber(depth) or depth <= 0 then addError(report, surfaceId .. ": invalid seabed depth at " .. key) end
     end
@@ -127,17 +150,23 @@ function SeabedAudit.validate(atlas, generated)
     end
   end
 
-  if atlas.stats and atlas.stats.waterCells and report.waterCells ~= atlas.stats.waterCells then
-    addError(report, string.format("atlas water total mismatch: report=%d atlas=%d",
-      report.waterCells, atlas.stats.waterCells))
+  if atlas.stats and atlas.stats.surfaceWaterCells
+      and report.surfaceWaterCells ~= atlas.stats.surfaceWaterCells then
+    addError(report, string.format("atlas surface-water total mismatch: report=%d atlas=%d",
+      report.surfaceWaterCells, atlas.stats.surfaceWaterCells))
   end
-  if report.diveCells ~= report.waterCells then
-    addError(report, string.format("global DIVE coverage mismatch: dive=%d water=%d",
-      report.diveCells, report.waterCells))
+  if atlas.stats and atlas.stats.seabedCells
+      and report.seabedCells ~= atlas.stats.seabedCells then
+    addError(report, string.format("atlas seabed total mismatch: report=%d atlas=%d",
+      report.seabedCells, atlas.stats.seabedCells))
   end
-  if report.volumeCells ~= report.waterCells then
-    addError(report, string.format("global swim-volume coverage mismatch: volume=%d water=%d",
-      report.volumeCells, report.waterCells))
+  if report.diveCells ~= report.surfaceWaterCells then
+    addError(report, string.format("global DIVE coverage mismatch: dive=%d surface-water=%d",
+      report.diveCells, report.surfaceWaterCells))
+  end
+  if report.volumeCells ~= report.seabedCells then
+    addError(report, string.format("global swim-volume coverage mismatch: volume=%d seabed=%d",
+      report.volumeCells, report.seabedCells))
   end
 
   report.ok = #report.errors == 0
@@ -147,8 +176,8 @@ end
 function SeabedAudit.log(mod, report)
   if not (mod and mod.log and report) then return end
   if report.ok then
-    mod.log:info("Kanto seabed audit OK: %d maps, %d water cells, %d DIVE cells, %d volume cells",
-      report.maps, report.waterCells, report.diveCells, report.volumeCells)
+    mod.log:info("Kanto seabed audit OK: %d maps, %d surface-water cells, %d under-structure cells, %d seabed cells",
+      report.maps, report.surfaceWaterCells, report.underStructureCells, report.seabedCells)
   else
     mod.log:error("Kanto seabed audit failed with %d errors", #report.errors)
     for _, message in ipairs(report.errors) do mod.log:error("seabed audit: %s", message) end
