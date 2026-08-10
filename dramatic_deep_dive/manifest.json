@@ -1,7 +1,7 @@
 {
   "id": "DRAMATIC_DEEP_DIVE",
   "name": "Dramatic Deep Dive",
-  "version": "0.5.0-alpha.3",
+  "version": "0.5.0-alpha.4",
   "api": 2,
   "entry": "main.lua",
   "profile": "content",
@@ -24,6 +24,6 @@
     "filesystem"
   ],
   "affects_link": true,
-  "description": "Full-Kanto Deep Dive preview with two-layer hydrology: real surface water remains the DIVE/SURFACE entry mask while bridges, docks and pontoons preserve continuous swimmable water and seabed underneath. Includes seamless underwater route connections, cave/harbor portals, biome-aware geology and lighting, living Pokedex-scaled Pokemon, salvage, Wilds/Sky compatibility and HM08 DIVE. Surface DIVE masking remains disabled because all real water is diveable.",
+  "description": "Full-Kanto Deep Dive preview with continuous water under bridges, docks and pontoons. With Wilds of Kanto active, underwater random/vanilla encounters are hard-disabled and only visible overworld Pokemon interception can start wild battles. Includes seamless underwater connections, cave/harbor portals, biome-aware geology and lighting, Pokedex-scaled wildlife, salvage and HM08 DIVE.",
   "github": "mfrtechconsult/Dramatic-Deep-Dive"
 }
