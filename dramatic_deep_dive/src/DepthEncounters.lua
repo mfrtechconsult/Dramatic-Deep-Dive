@@ -48,6 +48,15 @@ function DepthEncounters:encounterDefinition(band)
   }
 end
 
+function DepthEncounters:wildsInstalled()
+  if self.mod and self.mod.find then
+    local ok, handle = pcall(self.mod.find, self.mod, "overworld_wild_spawns")
+    if ok and handle then return true end
+  end
+  local exports = Game and Game.mods and Game.mods.exports
+  return exports and exports.overworld_wild_spawns ~= nil or false
+end
+
 function DepthEncounters:install()
   -- OverworldController retains the Encounter module table, not a local copy
   -- of roll(), so replacing this one function safely affects normal encounter
@@ -62,6 +71,10 @@ function DepthEncounters:install()
     if service then
       local band = service:currentBand()
       if band then
+        -- When Wilds of Kanto is active, Deep Dive becomes overworld-only:
+        -- visible underwater Pokemon remain, but random step encounters are
+        -- suppressed so exploration is never interrupted by invisible rolls.
+        if service:wildsInstalled() then return nil end
         local encounter = innerRoll(service:encounterDefinition(band), rng)
         if encounter and service.wildlife and service.wildlife.consumeNearby then
           pcall(service.wildlife.consumeNearby, service.wildlife, encounter.species)
