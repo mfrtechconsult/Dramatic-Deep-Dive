@@ -18,14 +18,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build installable ZIP
+      - name: Build launcher-ready ZIP
         shell: bash
         run: |
           set -euo pipefail
           VERSION=$(python3 -c 'import json; print(json.load(open("dramatic_deep_dive/manifest.json", encoding="utf-8"))["version"])')
           ZIP="dramatic-deep-dive-${VERSION}-wilds-dev.zip"
-          zip -qr "$ZIP" dramatic_deep_dive -x "*/__pycache__/*" "*.pyc" "*.pyo" ".DS_Store" "Thumbs.db"
-          unzip -Z1 "$ZIP" | grep -qx 'dramatic_deep_dive/manifest.json'
+          (
+            cd dramatic_deep_dive
+            zip -qr "../$ZIP" . -x "*/__pycache__/*" "*.pyc" "*.pyo" ".DS_Store" "Thumbs.db"
+          )
+          unzip -Z1 "$ZIP" | grep -qx 'manifest.json'
+          unzip -Z1 "$ZIP" | grep -qx 'main.lua'
           unzip -t "$ZIP"
           echo "ZIP=$ZIP" >> "$GITHUB_ENV"
 
