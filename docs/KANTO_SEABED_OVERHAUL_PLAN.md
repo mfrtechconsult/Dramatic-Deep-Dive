@@ -1,0 +1,235 @@
+# Kanto Seabed Overhaul Plan
+
+## Goal
+
+Replace the small set of handcrafted Deep Dive maps with a complete underwater layer for Kanto.
+
+Every meaningful water body in Kanto must have a coherent seabed representation. The underwater world must visually and structurally match the surface route, town, cave or landmark above it instead of feeling like an unrelated generic dungeon.
+
+The released `0.4.0` main branch remains the stable reference. All work happens on `dev/kanto-seabed-overhaul` until the new coverage is complete and validated.
+
+## Core design rule
+
+The new system must not rely on a manually maintained list of a few DIVE rectangles.
+
+A Kanto water atlas will scan the actual loaded map definitions with the engine water-cell rules and produce an exhaustive inventory of water cells and connected water bodies. Authoring data then adds biome, depth and landmark identity on top of that generated topology.
+
+This gives two guarantees:
+
+1. coverage is exhaustive and auditable;
+2. areas still receive bespoke visual identity instead of becoming generic procedural oceans.
+
+## Phase 1 — Build the Kanto water atlas
+
+Create tooling that inspects every Kanto map and records:
+
+- map id and dimensions;
+- every cell considered water by the engine;
+- connected water components inside each map;
+- whether each component is reachable by normal Surf gameplay or only decorative;
+- coastline cells and distance from shore;
+- map-to-map connections touching water;
+- cave/interior/outdoor context;
+- tileset and map metadata useful for biome classification.
+
+Generated output must be deterministic and checked into the repository so it can be audited.
+
+### Required audit
+
+CI must fail if a Kanto water cell is not assigned to a seabed component unless it is explicitly allowlisted as decorative/non-navigable water.
+
+## Phase 2 — Replace manual DIVE links with identity coordinate mapping
+
+For normal water bodies, underwater coordinates should preserve the surface coordinates whenever possible.
+
+The default rule becomes:
+
+- surface map + water cell `(x, y)` -> matching underwater map + `(x, y)`;
+- SURFACE from an underwater cell -> matching surface cell only when that surface cell is still valid water;
+- broad manual rectangles are no longer the primary authoring mechanism.
+
+Exception mappings remain possible for special spaces such as caves, shafts or authored portals.
+
+This removes most hand-maintained DIVE links and makes full-Kanto coverage practical.
+
+## Phase 3 — Generate one coherent seabed topology per water-bearing surface map
+
+Generate underwater map definitions from the surface water mask.
+
+Rules:
+
+- water footprint drives the navigable underwater footprint;
+- land/coast above becomes solid underwater boundary or rising seabed;
+- narrow channels stay narrow unless an authored profile intentionally opens them below the surface;
+- bridges and docks remain passable underwater but may receive supports/pylons;
+- connected surface maps receive corresponding underwater connections;
+- crossing a map boundary underwater must preserve position and depth smoothly.
+
+The generator must avoid loading all of Kanto as one giant mesh. Content remains map/chunk scoped for performance.
+
+## Phase 4 — Derive believable depth automatically
+
+Base depth comes from topology rather than arbitrary rectangles.
+
+Default depth synthesis:
+
+- shallow shelves close to coastline;
+- progressively deeper water as distance from shore increases;
+- smoothed depth transitions instead of hard rectangular steps;
+- narrow rivers/canals stay relatively shallow;
+- large ocean bodies receive deeper central basins;
+- map-boundary depths are reconciled so neighboring underwater maps join cleanly.
+
+Authoring profiles can override the generated depth for named landmarks and special geology.
+
+## Phase 5 — Kanto biome profiles
+
+Every water-bearing map receives a biome profile derived from its location and context.
+
+Example families:
+
+### Open ocean / coastal routes
+
+- reef shelves;
+- sand and rock fields;
+- kelp and coral where appropriate;
+- trenches farther offshore;
+- stronger blue falloff at depth.
+
+### Cinnabar / volcanic coast
+
+- darker volcanic rock;
+- basalt formations;
+- thermal vents and bubble columns;
+- deeper offshore drop-offs.
+
+### Vermilion / harbor water
+
+- dock supports;
+- anchors, chains and shipping debris;
+- flatter dredged seabed near the port;
+- occasional wreckage farther out.
+
+### Pallet / quiet coast
+
+- shallow sand;
+- grass/kelp patches;
+- gentle rock shelves;
+- low-complexity beginner-friendly depth.
+
+### Seafoam / cave water
+
+- rock ceilings and enclosed blue light;
+- ice/crystal formations where appropriate;
+- shafts, submerged chambers and deep holes;
+- cave-specific navigation silhouettes.
+
+### Freshwater / inland water
+
+- mud, gravel and vegetation instead of ocean coral;
+- shallower depth profiles;
+- freshwater encounter ecology.
+
+### Safari / marsh-like water
+
+- silt, roots, reeds and murkier visibility;
+- shallow irregular basins.
+
+Biome selection must be data-driven so individual maps can override materials, density, visibility and depth limits without changing engine code.
+
+## Phase 6 — Surface landmark correspondence
+
+Underwater scenery should explain what exists above it.
+
+Examples:
+
+- bridge cells can generate pillars/supports below;
+- docks can generate pylons and harbor debris;
+- coastal cliffs continue below the waterline;
+- cave mouths become underwater rock entrances or walls;
+- major islands create submerged slopes rather than abrupt flat borders;
+- authored landmarks can place wrecks, ruins, vents, arches or caves only where they fit the surface context.
+
+A landmark-anchor data layer will reference surface coordinates so the underwater version stays spatially coherent.
+
+## Phase 7 — Seamless underwater Kanto network
+
+Underwater routes should connect wherever their surface water bodies connect.
+
+Requirements:
+
+- preserve depth when crossing between neighboring underwater maps;
+- reconcile floor depth across seams;
+- no forced SURFACE between adjacent connected ocean routes;
+- maintain valid fallback positions for save/load and recovery;
+- support future external map mods through the existing public volume/registration APIs.
+
+## Phase 8 — Living ecology
+
+Reuse the proven Deep Dive living-ocean systems on the new atlas:
+
+- visible Pokémon spawned by biome and depth;
+- Pokédex-height dynamic visual scaling;
+- schooling and free 3D swimming;
+- forgiving 3D interception;
+- exact visible species/level passed into battle;
+- Wilds of Kanto sprite-provider integration;
+- random encounter rolls disabled while Wilds mode is active;
+- classic random encounters remain as fallback without Wilds.
+
+Ecology tables become biome-based first, with optional map-specific overrides.
+
+## Phase 9 — Visual boundaries and atmosphere
+
+Keep the current successful presentation principles:
+
+- dark-blue distant boundaries rather than black void;
+- blue overhead surface cue;
+- depth-dependent lighting and visibility;
+- stronger darkness and reduced visibility in abyssal zones;
+- shallower, brighter treatment near towns and coastlines;
+- cave-specific ceiling treatment.
+
+## Phase 10 — Salvage and authored points of interest
+
+Only after topology is stable:
+
+- place salvage nodes;
+- add wrecks, ruins and special caves;
+- create named underwater districts only where useful;
+- distribute optional exploration rewards;
+- ensure POIs do not block required travel corridors.
+
+## Phase 11 — Coverage and regression CI
+
+Add automated checks for:
+
+- 100% Kanto water coverage or explicit allowlist;
+- every DIVE destination exists;
+- every SURFACE target is valid water;
+- underwater coordinate bounds;
+- matching underwater connections across adjacent maps;
+- no missing volume for generated underwater maps;
+- no impossible floor/ceiling ranges;
+- spawn positions inside valid swim volumes;
+- no invalid event namespaces;
+- compatibility with Wilds of Kanto, Wild Skies, Dramatic Sky Ride, Battle Art Voxel Fork, Dramaless Shape and Crystal 251;
+- launcher-ready packaging.
+
+## Delivery order
+
+1. Water atlas + coverage report.
+2. Generic seabed generator + identity DIVE mapping.
+3. Seamless underwater map connections.
+4. Depth synthesis.
+5. Three representative biome validation maps: quiet coast, harbor, cave/deep ocean.
+6. Generate every remaining Kanto water-bearing map.
+7. Biome/landmark polish pass across all Kanto.
+8. Ecology integration across all maps.
+9. Salvage/POI pass.
+10. Full compatibility/performance validation.
+11. Release candidate.
+
+## Definition of done
+
+The overhaul is complete only when the automated atlas can demonstrate that every gameplay-relevant Kanto water cell has a corresponding seabed, every reachable water network can be explored coherently underwater, and the visual identity of each submerged area clearly reflects the route, city, cave or landmark above it.
