@@ -1,7 +1,7 @@
 {
   "id": "DRAMATIC_DEEP_DIVE",
   "name": "Dramatic Deep Dive",
-  "version": "0.4.0-alpha.11",
+  "version": "0.4.0-alpha.12",
   "api": 2,
   "entry": "main.lua",
   "profile": "content",
@@ -24,6 +24,6 @@
     "filesystem"
   ],
   "affects_link": true,
-  "description": "Full Dramatic Deep Dive runtime with ocean-scale swim spaces, much deeper vertical columns, low encounter frequency, strict event namespaces, and a non-invasive Sky/Wilds compatibility path that avoids circular overworld update wrappers.",
+  "description": "Full Dramatic Deep Dive runtime with ocean-scale swim spaces, fixed-step vertical depth controls compatible with Wilds/Sky mods, visible depth-aware Water Pokemon schools using installed sprite providers, low random encounter frequency, and safe Sky/Wilds transition handling.",
   "github": "mfrtechconsult/Dramatic-Deep-Dive"
 }
