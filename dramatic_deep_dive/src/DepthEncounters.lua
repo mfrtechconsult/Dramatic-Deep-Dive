@@ -9,7 +9,12 @@ function DepthEncounters.new(mod, controller, definitions)
     mod = mod,
     controller = controller,
     definitions = definitions or {},
+    wildlife = nil,
   }, DepthEncounters)
+end
+
+function DepthEncounters:setWildlife(wildlife)
+  self.wildlife = wildlife
 end
 
 function DepthEncounters:band(mapId, depth)
@@ -57,7 +62,11 @@ function DepthEncounters:install()
     if service then
       local band = service:currentBand()
       if band then
-        return innerRoll(service:encounterDefinition(band), rng)
+        local encounter = innerRoll(service:encounterDefinition(band), rng)
+        if encounter and service.wildlife and service.wildlife.consumeNearby then
+          pcall(service.wildlife.consumeNearby, service.wildlife, encounter.species)
+        end
+        return encounter
       end
     end
     return innerRoll(encounterDef, rng)
