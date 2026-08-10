@@ -30,7 +30,9 @@ return function(mod)
   local FollowerSprites = loadModule(mod, "src/FollowerSprites.lua")
   local FollowerBridge = loadModule(mod, "src/FollowerBridge.lua")
   local UpdateHookGuard = loadModule(mod, "src/UpdateHookGuard.lua")
+  local TransitionWatchdog = loadModule(mod, "src/TransitionWatchdog.lua")
   local DiveTravel = loadModule(mod, "src/DiveTravel.lua")
+  local SurfaceDiveMarkers = loadModule(mod, "src/SurfaceDiveMarkers.lua")
   local Progression = loadModule(mod, "src/Progression.lua")
   local DeepDive = loadModule(mod, "src/DeepDive.lua")
   local SceneDecor = loadModule(mod, "src/SceneDecor.lua")
@@ -52,7 +54,8 @@ return function(mod)
 
   if not (Content and VoxelProvider and Crystal251Compat and JohtoWaterMoves
       and HMForgetGuard and HMShowcase and MountPolicy and VolumeRegistry
-      and FollowerSprites and FollowerBridge and UpdateHookGuard and DiveTravel
+      and FollowerSprites and FollowerBridge and UpdateHookGuard
+      and TransitionWatchdog and DiveTravel and SurfaceDiveMarkers
       and Progression and DeepDive and SceneDecor and SetpieceDecor
       and SceneGameplay and UnderwaterLighting and SubmergedTransitionGuard
       and DiveTransition and DepthEncounters and Salvage and AmbientLOD
@@ -99,6 +102,9 @@ return function(mod)
       text = "HM07 WATERFALL TEST\nA waterfall blocks the\ncentral current.\fDescend freely, then\nuse WATERFALL to climb.",
     },
   })
+
+  local surfaceDiveMarkers = SurfaceDiveMarkers.new(mod, diveDefinitions)
+  if not surfaceDiveMarkers:install() then return end
 
   local voxelProvider = VoxelProvider.new(mod)
   if not voxelProvider:discover() then return end
@@ -181,6 +187,7 @@ return function(mod)
   salvage:install()
   diveTransition:install()
   local updateHookGuard = UpdateHookGuard.install(mod, controller)
+  TransitionWatchdog.install(mod, diveTransition, updateHookGuard)
 
   mod.exports.voxelProvider = function() return voxelProvider:id(), voxelProvider:pipelineId() end
   mod.exports.isActive = function() return controller:isActive() end
@@ -192,6 +199,8 @@ return function(mod)
   mod.exports.canSwimAt = function(mapId, x, y) return registry:contains(mapId, x, y) end
   mod.exports.canDiveHere = function(game) return travel:canDiveHere(game) end
   mod.exports.canSurfaceHere = function(game) return travel:canSurfaceHere(game) end
+  mod.exports.getDiveMarkers = function(mapId) return surfaceDiveMarkers:cellsFor(mapId) end
+  mod.exports.getVisualDiveMarkers = function(mapId) return surfaceDiveMarkers:cellsFor(mapId) end
   mod.exports.currentDistrict = function()
     return sceneGameplay.districtId, sceneGameplay.districtName
   end
