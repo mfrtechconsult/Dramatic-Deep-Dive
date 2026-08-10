@@ -27,3 +27,5 @@ jobs:
         run: lua5.4 dramatic_deep_dive/tools/test_seabed_landmarks.lua
       - name: Test exact surface warp/object anchors
         run: lua5.4 dramatic_deep_dive/tools/test_surface_landmark_anchors.lua
+      - name: Test full-Kanto no-mask and submerged portals
+        run: lua5.4 dramatic_deep_dive/tools/test_full_kanto_mode.lua
