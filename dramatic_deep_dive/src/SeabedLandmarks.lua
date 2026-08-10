@@ -3,10 +3,6 @@ SeabedLandmarks.__index = SeabedLandmarks
 
 local CELL = 16
 
-local function cellKey(x, y)
-  return tostring(x) .. ":" .. tostring(y)
-end
-
 local function stableHash(mapId, x, y, salt)
   local value = tonumber(salt) or 0
   local text = tostring(mapId or "")
@@ -60,17 +56,12 @@ local function spacedPick(candidates, count, spacing, mapId, salt)
 end
 
 function SeabedLandmarks.new(mod, atlas, rules)
-  return setmetatable({
-    mod = mod,
-    atlas = atlas,
-    rules = rules or {},
-  }, SeabedLandmarks)
+  return setmetatable({ mod = mod, atlas = atlas, rules = rules or {} }, SeabedLandmarks)
 end
 
 function SeabedLandmarks:ruleFor(entry)
   local defaults = self.rules.defaults and self.rules.defaults[entry.profileName] or {}
-  local selected = nil
-  if self.rules.maps then selected = self.rules.maps[entry.id] end
+  local selected = self.rules.maps and self.rules.maps[entry.id] or nil
   if not selected then
     for _, rule in ipairs(self.rules.patterns or {}) do
       if tostring(entry.id):find(rule.find, 1, true) then selected = rule break end
@@ -108,55 +99,58 @@ local function addDistrict(scene, name, entry)
   scene.districts[#scene.districts + 1] = {
     id = "generated_identity",
     name = name,
-    x0 = 0,
-    x1 = entry.width * CELL,
-    z0 = 0,
-    z1 = entry.height * CELL,
+    x0 = 0, x1 = entry.width * CELL,
+    z0 = 0, z1 = entry.height * CELL,
+  }
+end
+
+-- SceneDecor already knows how to render column rings, rock spires, arches and
+-- broken walls. The landmark pass intentionally reuses those stable primitives
+-- instead of adding renderer-specific geometry to the atlas layer.
+local function addColumn(scene, x, z, height, material, width)
+  scene.structures[#scene.structures + 1] = {
+    kind = "column_ring", x = x, z = z,
+    radius = 0, count = 1, height = height,
+    material = material or "ruinStone",
+    solid = false,
+    generatedWidth = width,
   }
 end
 
 function SeabedLandmarks:addHarbor(entry, scene, rule)
-  local shore = spacedPick(self:candidates(entry, "shore"), rule.shoreStructures or 12, 2.2,
-    entry.id, 101)
-  local mid = spacedPick(self:candidates(entry, "mid"), rule.anchors or 2, 5.0,
-    entry.id, 117)
-  local deep = spacedPick(self:candidates(entry, "deep"), rule.deepStructures or 3, 5.5,
-    entry.id, 139)
+  local shore = spacedPick(self:candidates(entry, "shore"), rule.shoreStructures or 12, 2.2, entry.id, 101)
+  local mid = spacedPick(self:candidates(entry, "mid"), rule.anchors or 2, 5.0, entry.id, 117)
+  local deep = spacedPick(self:candidates(entry, "deep"), rule.deepStructures or 3, 5.5, entry.id, 139)
 
   for index, cell in ipairs(shore) do
     local x, z = worldPoint(cell.x, cell.y)
-    scene.structures[#scene.structures + 1] = {
-      kind = "pillar", x = x, z = z,
-      width = index % 3 == 0 and 10 or 8,
-      depth = index % 3 == 0 and 10 or 8,
-      height = 58 + (index % 4) * 14,
-      material = index % 4 == 0 and "harborMetal" or "harborWood",
-    }
+    addColumn(scene, x, z, 58 + (index % 4) * 14,
+      index % 4 == 0 and "darkStone" or "ruinStone")
   end
-  for _, cell in ipairs(mid) do
+  for index, cell in ipairs(mid) do
     local x, z = worldPoint(cell.x, cell.y)
     scene.structures[#scene.structures + 1] = {
-      kind = "anchor", x = x, z = z, height = 34, material = "harborMetal",
+      kind = "broken_wall", x = x, z = z,
+      width = 24 + index * 4, height = 18 + index * 2,
+      thickness = 7, material = "darkStone",
     }
   end
   for index, cell in ipairs(deep) do
     local x, z = worldPoint(cell.x, cell.y)
     scene.structures[#scene.structures + 1] = {
-      kind = index % 2 == 0 and "broken_wall" or "pillar",
+      kind = index % 2 == 0 and "broken_wall" or "column_ring",
       x = x, z = z,
-      width = 48, height = 32 + index * 3, depth = 10,
-      thickness = 9, material = "harborMetal",
+      width = 48, height = 34 + index * 3,
+      thickness = 9, radius = 0, count = 1,
+      material = "darkStone",
     }
   end
 end
 
 function SeabedLandmarks:addVolcanic(entry, scene, rule)
-  local deep = spacedPick(self:candidates(entry, "deep"), rule.deepStructures or 8, 4.5,
-    entry.id, 211)
-  local vents = spacedPick(self:candidates(entry, "deep"), rule.vents or 4, 6.0,
-    entry.id, 227)
-  local shore = spacedPick(self:candidates(entry, "shore"), rule.shoreStructures or 4, 4.0,
-    entry.id, 241)
+  local deep = spacedPick(self:candidates(entry, "deep"), rule.deepStructures or 8, 4.5, entry.id, 211)
+  local vents = spacedPick(self:candidates(entry, "deep"), rule.vents or 4, 6.0, entry.id, 227)
+  local shore = spacedPick(self:candidates(entry, "shore"), rule.shoreStructures or 4, 4.0, entry.id, 241)
 
   for index, cell in ipairs(deep) do
     local x, z = worldPoint(cell.x, cell.y)
@@ -164,14 +158,15 @@ function SeabedLandmarks:addVolcanic(entry, scene, rule)
       kind = "spire", x = x, z = z,
       height = 70 + (index % 5) * 24,
       radius = 12 + (index % 3) * 4,
-      material = "basalt",
+      material = "darkStone",
     }
   end
   for _, cell in ipairs(vents) do
     local x, z = worldPoint(cell.x, cell.y)
     scene.structures[#scene.structures + 1] = {
-      kind = "thermal_vent", x = x, z = z,
-      height = 44 + (cell.floor % 48), material = "basalt",
+      kind = "spire", x = x, z = z,
+      height = 44 + (cell.floor % 48), radius = 10,
+      material = "darkStone",
     }
     scene.bubbleVents[#scene.bubbleVents + 1] = {
       x = x, z = z, count = 9,
@@ -182,18 +177,15 @@ function SeabedLandmarks:addVolcanic(entry, scene, rule)
     local x, z = worldPoint(cell.x, cell.y)
     scene.structures[#scene.structures + 1] = {
       kind = "rock_arch", x = x, z = z,
-      width = 70, height = 44, thickness = 12, material = "basalt",
+      width = 70, height = 44, thickness = 12, material = "darkStone",
     }
   end
 end
 
 function SeabedLandmarks:addCave(entry, scene, rule)
-  local deep = spacedPick(self:candidates(entry, "deep"), rule.deepStructures or 7, 4.2,
-    entry.id, 307)
-  local ice = spacedPick(self:candidates(entry, "all"), rule.iceColumns or 9, 3.4,
-    entry.id, 331)
-  local shore = spacedPick(self:candidates(entry, "shore"), rule.shoreStructures or 4, 5.0,
-    entry.id, 349)
+  local deep = spacedPick(self:candidates(entry, "deep"), rule.deepStructures or 7, 4.2, entry.id, 307)
+  local ice = spacedPick(self:candidates(entry, "all"), rule.iceColumns or 9, 3.4, entry.id, 331)
+  local shore = spacedPick(self:candidates(entry, "shore"), rule.shoreStructures or 4, 5.0, entry.id, 349)
 
   for index, cell in ipairs(deep) do
     local x, z = worldPoint(cell.x, cell.y)
@@ -201,17 +193,16 @@ function SeabedLandmarks:addCave(entry, scene, rule)
       kind = index % 3 == 0 and "rock_arch" or "spire",
       x = x, z = z,
       width = 74, height = 62 + (index % 4) * 18,
-      thickness = 14, radius = 13,
-      material = "darkStone",
+      thickness = 14, radius = 13, material = "darkStone",
     }
   end
   for index, cell in ipairs(ice) do
     local x, z = worldPoint(cell.x, cell.y)
     scene.structures[#scene.structures + 1] = {
-      kind = "ice_column", x = x, z = z,
+      kind = "spire", x = x, z = z,
       height = 38 + (index % 5) * 18,
       radius = 7 + (index % 3) * 2,
-      material = "ice",
+      material = "crystal",
     }
   end
   for _, cell in ipairs(shore) do
@@ -223,18 +214,15 @@ function SeabedLandmarks:addCave(entry, scene, rule)
 end
 
 function SeabedLandmarks:addOcean(entry, scene, rule)
-  local deep = spacedPick(self:candidates(entry, "deep"), rule.deepStructures or 5, 6.0,
-    entry.id, 401)
-  local shore = spacedPick(self:candidates(entry, "shore"), rule.shoreStructures or 3, 5.0,
-    entry.id, 419)
+  local deep = spacedPick(self:candidates(entry, "deep"), rule.deepStructures or 5, 6.0, entry.id, 401)
+  local shore = spacedPick(self:candidates(entry, "shore"), rule.shoreStructures or 3, 5.0, entry.id, 419)
   for index, cell in ipairs(deep) do
     local x, z = worldPoint(cell.x, cell.y)
     scene.structures[#scene.structures + 1] = {
       kind = index % 3 == 0 and "rock_arch" or "spire",
       x = x, z = z,
       width = 88, height = 72 + (index % 4) * 22,
-      thickness = 14, radius = 15,
-      material = "reefRock",
+      thickness = 14, radius = 15, material = "reefRock",
     }
   end
   for _, cell in ipairs(shore) do
@@ -247,37 +235,26 @@ function SeabedLandmarks:addOcean(entry, scene, rule)
 end
 
 function SeabedLandmarks:addFreshwater(entry, scene, rule)
-  local shore = spacedPick(self:candidates(entry, "shore"), rule.shoreStructures or 4, 4.0,
-    entry.id, 503)
-  local deep = spacedPick(self:candidates(entry, "deep"), rule.deepStructures or 2, 6.0,
-    entry.id, 521)
-  for _, cell in ipairs(shore) do
+  local shore = spacedPick(self:candidates(entry, "shore"), rule.shoreStructures or 4, 4.0, entry.id, 503)
+  local deep = spacedPick(self:candidates(entry, "deep"), rule.deepStructures or 2, 6.0, entry.id, 521)
+  for index, cell in ipairs(shore) do
     local x, z = worldPoint(cell.x, cell.y)
-    scene.structures[#scene.structures + 1] = {
-      kind = "pillar", x = x, z = z,
-      width = 7, depth = 7, height = 34,
-      material = "rootWood",
-    }
+    addColumn(scene, x, z, 26 + (index % 4) * 8, "darkStone")
   end
   for _, cell in ipairs(deep) do
     local x, z = worldPoint(cell.x, cell.y)
     scene.structures[#scene.structures + 1] = {
       kind = "spire", x = x, z = z,
-      height = 42, radius = 10, material = "riverRock",
+      height = 42, radius = 10, material = "reefRock",
     }
   end
 end
 
 function SeabedLandmarks:addMarsh(entry, scene, rule)
-  local shore = spacedPick(self:candidates(entry, "shore"), rule.shoreStructures or 5, 3.0,
-    entry.id, 601)
+  local shore = spacedPick(self:candidates(entry, "shore"), rule.shoreStructures or 5, 3.0, entry.id, 601)
   for index, cell in ipairs(shore) do
     local x, z = worldPoint(cell.x, cell.y)
-    scene.structures[#scene.structures + 1] = {
-      kind = "pillar", x = x, z = z,
-      width = 5 + index % 3, depth = 5 + index % 2,
-      height = 26 + (index % 4) * 8, material = "rootWood",
-    }
+    addColumn(scene, x, z, 24 + (index % 4) * 7, "darkStone")
   end
 end
 
@@ -302,10 +279,7 @@ function SeabedLandmarks:apply(scenes)
   for _, surfaceId in ipairs(self.atlas:mapIds()) do
     local entry = self.atlas:surface(surfaceId)
     local scene = scenes and scenes["atlas:" .. surfaceId]
-    if scene then
-      self:applyOne(entry, scene)
-      count = count + 1
-    end
+    if scene then self:applyOne(entry, scene); count = count + 1 end
   end
   if self.mod.log then self.mod.log:info("Applied seabed landmark identity to %d generated maps", count) end
   return count
