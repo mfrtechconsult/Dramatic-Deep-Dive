@@ -23,6 +23,6 @@
     "filesystem"
   ],
   "affects_link": true,
-  "description": "Independent HM08 DIVE and Voxel/free-depth underwater exploration with native DDD maps, depth ecology, salvage, mounts and 3D scenery using compatible follower sprites from Wilds of Kanto or PokePC Followers.",
+  "description": "Independent HM08 DIVE and Voxel/free-depth underwater exploration, now with Crystal-style HM06 WHIRLPOOL and HM07 WATERFALL field mechanics, standalone acquisition, and optional Crystal 251 interoperability.",
   "github": "mfrtechconsult/Dramatic-Deep-Dive"
 }
