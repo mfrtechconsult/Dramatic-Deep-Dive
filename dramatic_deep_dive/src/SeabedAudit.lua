@@ -60,6 +60,7 @@ function SeabedAudit.validate(atlas, generated)
 
   for _, surfaceId in ipairs(atlas:mapIds()) do
     local entry = atlas:surface(surfaceId)
+    local surfaceWater = entry.surfaceWater or entry.water or {}
     report.maps = report.maps + 1
     report.surfaceWaterCells = report.surfaceWaterCells + (entry.surfaceWaterCount or entry.waterCount or 0)
     report.waterCells = report.surfaceWaterCells
@@ -92,7 +93,7 @@ function SeabedAudit.validate(atlas, generated)
       report.diveCells = report.diveCells + 1
       if diveSeen[key] then addError(report, surfaceId .. ": duplicate DIVE coverage at " .. key) end
       diveSeen[key] = true
-      if not (entry.surfaceWater and entry.surfaceWater[key]) then
+      if not surfaceWater[key] then
         addError(report, surfaceId .. ": DIVE link covers non-surface-water cell " .. key)
       end
       if entry.underStructure and entry.underStructure[key] then
@@ -115,7 +116,7 @@ function SeabedAudit.validate(atlas, generated)
       if not entry.water[key] then addError(report, surfaceId .. ": swim volume covers non-hydrology cell " .. key) end
     end)
 
-    for key in pairs(entry.surfaceWater or entry.water or {}) do
+    for key in pairs(surfaceWater) do
       if not diveSeen[key] then addError(report, surfaceId .. ": surface water cell has no DIVE link at " .. key) end
       if not volumeSeen[key] then addError(report, surfaceId .. ": surface water cell has no swim volume at " .. key) end
     end
