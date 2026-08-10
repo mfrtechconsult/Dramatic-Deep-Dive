@@ -2,6 +2,12 @@ local SeabedGenerator = {}
 SeabedGenerator.__index = SeabedGenerator
 
 local CELL = 16
+local DIRS = {
+  north = { name = "north", dx = 0, dy = -1 },
+  south = { name = "south", dx = 0, dy = 1 },
+  west = { name = "west", dx = -1, dy = 0 },
+  east = { name = "east", dx = 1, dy = 0 },
+}
 
 local function cellKey(x, y) return tostring(x) .. ":" .. tostring(y) end
 
@@ -73,6 +79,33 @@ function SeabedGenerator:mapDefinition(entry, index)
   }
 end
 
+function SeabedGenerator:connectedEdgeCells(entry)
+  local masks = {}
+  for direction in pairs(entry.seams or {}) do
+    local dir = DIRS[direction]
+    local mask = {}
+    if direction == "north" or direction == "south" then
+      local y = direction == "north" and 0 or entry.height - 1
+      for x = 0, entry.width - 1 do
+        if entry.water[cellKey(x, y)] then
+          local destId, nx, ny = self.atlas:step(entry.id, x, y, dir)
+          if destId and self.atlas:isWater(destId, nx, ny) then mask[cellKey(x, y)] = true end
+        end
+      end
+    else
+      local x = direction == "west" and 0 or entry.width - 1
+      for y = 0, entry.height - 1 do
+        if entry.water[cellKey(x, y)] then
+          local destId, nx, ny = self.atlas:step(entry.id, x, y, dir)
+          if destId and self.atlas:isWater(destId, nx, ny) then mask[cellKey(x, y)] = true end
+        end
+      end
+    end
+    masks[direction] = mask
+  end
+  return masks
+end
+
 function SeabedGenerator:volumeDefinition(entry)
   local p = entry.profile
   local maxFloor = 0
@@ -96,6 +129,7 @@ function SeabedGenerator:volumeDefinition(entry)
     widthCells = entry.width,
     heightCells = entry.height,
     connectedEdges = connectedEdges,
+    connectedEdgeCells = self:connectedEdgeCells(entry),
   }
 end
 
@@ -212,7 +246,6 @@ local SALVAGE_ITEMS = {
 }
 
 function SeabedGenerator:salvage(entry)
-  -- Tiny decorative pools still receive a seabed, but not treasure spam.
   if entry.waterCount < 36 then return {} end
   local desired = math.min(4, math.max(1, math.floor(entry.waterCount / 220) + 1))
   if entry.profileName == "freshwater" or entry.profileName == "marsh" then desired = math.min(desired, 2) end
@@ -288,9 +321,6 @@ function SeabedGenerator:build()
     out.dives["atlas:" .. surfaceId] = self:diveZone(entry)
     local bands = self:encounters(entry)
     out.encounters[map.id] = bands
-    -- The depth hook replaces this table while Deep Dive is active, but a
-    -- real encounter record keeps vanilla's step/grass encounter cadence
-    -- alive as the standalone fallback when Wilds of Kanto is absent.
     local first = bands[1]
     if first and not self.mod.content.encounters:get(map.id) then
       self.mod.content.encounters:register(map.id, {
