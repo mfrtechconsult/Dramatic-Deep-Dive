@@ -32,6 +32,10 @@ local function distanceSquared(a, b)
   return dx * dx + dy * dy
 end
 
+local function sameCell(a, b)
+  return a.x == b.x and a.y == b.y
+end
+
 local function spacedPick(candidates, count, spacing, mapId, salt)
   if count <= 0 or #candidates == 0 then return {} end
   table.sort(candidates, function(a, b)
@@ -50,6 +54,23 @@ local function spacedPick(candidates, count, spacing, mapId, salt)
     if clear then
       out[#out + 1] = candidate
       if #out >= count then break end
+    end
+  end
+
+  -- Small ponds/caves may not have enough room to satisfy both the requested
+  -- count and the preferred spacing. In that case density wins: fill the
+  -- remaining slots with the next deterministic candidates instead of
+  -- silently deleting landmark identity from compact maps.
+  if #out < count then
+    for _, candidate in ipairs(candidates) do
+      local already = false
+      for _, chosen in ipairs(out) do
+        if sameCell(candidate, chosen) then already = true break end
+      end
+      if not already then
+        out[#out + 1] = candidate
+        if #out >= count then break end
+      end
     end
   end
   return out
