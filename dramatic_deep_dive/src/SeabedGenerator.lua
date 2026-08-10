@@ -1,7 +1,17 @@
 local SeabedGenerator = {}
 SeabedGenerator.__index = SeabedGenerator
 
+local CELL = 16
+
 local function cellKey(x, y) return tostring(x) .. ":" .. tostring(y) end
+
+local function stableHash(mapId, x, y, salt)
+  local value = tonumber(salt) or 0
+  local text = tostring(mapId or "")
+  for i = 1, #text do value = (value * 33 + text:byte(i)) % 2147483647 end
+  value = (value + (x + 17) * 73856093 + (y + 29) * 19349663) % 2147483647
+  return value
+end
 
 local function maskBlock(entry, bx, by)
   local mask = 0
@@ -37,9 +47,7 @@ end
 function SeabedGenerator:mapDefinition(entry, index)
   local blocks = {}
   for by = 0, entry.def.height - 1 do
-    for bx = 0, entry.def.width - 1 do
-      blocks[#blocks + 1] = maskBlock(entry, bx, by)
-    end
+    for bx = 0, entry.def.width - 1 do blocks[#blocks + 1] = maskBlock(entry, bx, by) end
   end
 
   local connections = {}
@@ -123,8 +131,8 @@ function SeabedGenerator:encounters(entry)
   if not ecology then ecology = self.profileData.ecology and self.profileData.ecology.ocean end
   if not ecology then return {} end
   local maxDepth = entry.profile.maxFloor or 500
-  local shallowEnd = math.max(100, math.floor(maxDepth * 0.32))
-  local midEnd = math.max(shallowEnd + 80, math.floor(maxDepth * 0.62))
+  local shallowEnd = math.max(80, math.floor(maxDepth * 0.30))
+  local midEnd = math.max(shallowEnd + 70, math.floor(maxDepth * 0.62))
   local base = entry.profileName == "marsh" and 16
     or entry.profileName == "freshwater" and 18
     or entry.profileName == "harbor" and 20
@@ -151,7 +159,7 @@ function SeabedGenerator:scene(entry)
     districts = {}, structures = {}, scatter = {}, crystalClusters = {},
     bubbleVents = {}, lightShafts = {}, fishSchools = {},
   }
-  local widthPx, heightPx = entry.width * 16, entry.height * 16
+  local widthPx, heightPx = entry.width * CELL, entry.height * CELL
   local seed = 10000 + (entry.def.index or 0) * 37
   for kind, density in pairs(p.scatter or {}) do
     scene.scatter[#scene.scatter + 1] = {
@@ -166,13 +174,13 @@ function SeabedGenerator:scene(entry)
   end
 
   local bestKey, bestDistance = nil, -1
-  for key, distance in pairs(entry.shoreDistance) do
-    if distance > bestDistance then bestKey, bestDistance = key, distance end
+  for k, distance in pairs(entry.shoreDistance) do
+    if distance > bestDistance then bestKey, bestDistance = k, distance end
   end
   if bestKey then
     local x, y = bestKey:match("^(%-?%d+):(%-?%d+)$")
     x, y = tonumber(x), tonumber(y)
-    local wx, wz = x * 16 + 8, y * 16 + 8
+    local wx, wz = x * CELL + 8, y * CELL + 8
     scene.lightShafts[#scene.lightShafts + 1] = {
       x = wx, z = wz, width = 48, depth = 64,
       bottomDepth = math.min(entry.profile.maxFloor or 500, 260),
@@ -191,6 +199,77 @@ function SeabedGenerator:scene(entry)
     end
   end
   return scene
+end
+
+local SALVAGE_ITEMS = {
+  ocean = { "NUGGET", "RARE_CANDY", "MAX_REVIVE" },
+  coastal = { "NUGGET", "MAX_POTION" },
+  harbor = { "NUGGET", "PP_UP", "MAX_POTION" },
+  volcanic = { "FULL_RESTORE", "RARE_CANDY", "NUGGET" },
+  cave = { "RARE_CANDY", "MAX_REVIVE", "PP_UP" },
+  freshwater = { "MAX_POTION", "FULL_HEAL" },
+  marsh = { "FULL_HEAL", "MAX_POTION" },
+}
+
+function SeabedGenerator:salvage(entry)
+  -- Tiny decorative pools still receive a seabed, but not treasure spam.
+  if entry.waterCount < 36 then return {} end
+  local desired = math.min(4, math.max(1, math.floor(entry.waterCount / 220) + 1))
+  if entry.profileName == "freshwater" or entry.profileName == "marsh" then desired = math.min(desired, 2) end
+
+  local candidates = {}
+  for k in pairs(entry.water) do
+    local x, y = k:match("^(%-?%d+):(%-?%d+)$")
+    x, y = tonumber(x), tonumber(y)
+    candidates[#candidates + 1] = {
+      x = x, y = y,
+      shore = entry.shoreDistance[k] or 0,
+      floor = entry.floorDepth[k] or entry.profile.nearFloor or 80,
+      hash = stableHash(entry.id, x, y, 1701),
+    }
+  end
+  table.sort(candidates, function(a, b)
+    if a.shore ~= b.shore then return a.shore > b.shore end
+    if a.floor ~= b.floor then return a.floor > b.floor end
+    return a.hash < b.hash
+  end)
+
+  local chosen = {}
+  local spacing2 = 25
+  for _, c in ipairs(candidates) do
+    local clear = c.shore >= 1
+    if clear then
+      for _, other in ipairs(chosen) do
+        local dx, dy = c.x - other.x, c.y - other.y
+        if dx * dx + dy * dy < spacing2 then clear = false break end
+      end
+    end
+    if clear then
+      chosen[#chosen + 1] = c
+      if #chosen >= desired then break end
+    end
+  end
+  if #chosen == 0 and candidates[1] then chosen[1] = candidates[1] end
+
+  local items = SALVAGE_ITEMS[entry.profileName] or SALVAGE_ITEMS.coastal
+  local nodes = {}
+  for i, c in ipairs(chosen) do
+    local item = items[((stableHash(entry.id, c.x, c.y, 1901) + i) % #items) + 1]
+    nodes[#nodes + 1] = {
+      id = string.format("atlas_salvage_%s_%d", entry.id:lower(), i),
+      x = c.x * CELL + CELL / 2,
+      z = c.y * CELL + CELL / 2,
+      depth = math.max(entry.profile.minDepth or 10,
+        c.floor - (entry.profile.seabedClearance or 8) - 5),
+      item = item,
+      qty = 1,
+      label = entry.profileName == "harbor" and "DEBRIS SIGNAL"
+        or entry.profileName == "cave" and "CAVE SIGNAL"
+        or entry.profileName == "volcanic" and "THERMAL SIGNAL"
+        or "SEABED SIGNAL",
+    }
+  end
+  return nodes
 end
 
 function SeabedGenerator:build()
@@ -219,6 +298,7 @@ function SeabedGenerator:build()
       })
     end
     out.scenes["atlas:" .. surfaceId] = self:scene(entry)
+    out.salvage[map.id] = self:salvage(entry)
   end
   return out
 end
