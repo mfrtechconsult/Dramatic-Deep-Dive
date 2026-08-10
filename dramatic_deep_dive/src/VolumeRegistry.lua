@@ -31,6 +31,49 @@ local function contains(rect, x, y)
     and y >= rect.top and y <= rect.bottom
 end
 
+local function normalizeRows(rows, withDepth)
+  if type(rows) ~= "table" then return nil end
+  local out = {}
+  for rawY, rawRuns in pairs(rows) do
+    local y = number(rawY, nil)
+    if y ~= nil and type(rawRuns) == "table" then
+      local row = {}
+      for index, raw in ipairs(rawRuns) do
+        local x0 = number(raw.x0 or raw.left or raw.x, nil)
+        local x1 = number(raw.x1 or raw.right, nil)
+        if x1 == nil and x0 ~= nil and raw.width ~= nil then
+          x1 = x0 + number(raw.width, 0) - 1
+        end
+        if x0 == nil or x1 == nil or x1 < x0 then
+          return nil, ("invalid row run y=%s #%d"):format(tostring(rawY), index)
+        end
+        local run = { x0 = x0, x1 = x1 }
+        if withDepth then
+          run.floorDepth = number(raw.floorDepth or raw.maxDepth, nil)
+          if not run.floorDepth then
+            return nil, ("depth row run y=%s #%d has no floorDepth"):format(tostring(rawY), index)
+          end
+        end
+        row[#row + 1] = run
+      end
+      if #row > 0 then
+        table.sort(row, function(a, b) return a.x0 < b.x0 end)
+        out[y] = row
+      end
+    end
+  end
+  return out
+end
+
+local function rowContains(rows, x, y)
+  local row = rows and rows[y]
+  if not row then return false end
+  for _, run in ipairs(row) do
+    if x >= run.x0 and x <= run.x1 then return true, run end
+  end
+  return false
+end
+
 function VolumeRegistry.new(mod)
   return setmetatable({ mod = mod, byId = {}, byMap = {} }, VolumeRegistry)
 end
@@ -50,7 +93,12 @@ function VolumeRegistry:register(id, definition, owner)
     rect.id = raw.id or (id .. ":swim:" .. index)
     swimVolumes[#swimVolumes + 1] = rect
   end
-  if #swimVolumes == 0 then return nil, "at least one SwimVolume is required" end
+
+  local cellRuns, cellError = normalizeRows(definition.cellRuns, false)
+  if cellError then return nil, cellError end
+  if #swimVolumes == 0 and not cellRuns then
+    return nil, "at least one SwimVolume or cellRuns mask is required"
+  end
 
   local depthZones = {}
   for index, raw in ipairs(definition.depthZones or {}) do
@@ -61,6 +109,11 @@ function VolumeRegistry:register(id, definition, owner)
     if not rect.floorDepth then return nil, ("DepthZone %d has no floorDepth"):format(index) end
     depthZones[#depthZones + 1] = rect
   end
+
+  local depthRuns, depthError = normalizeRows(definition.depthRuns, true)
+  if depthError then return nil, depthError end
+  local surfaceRuns, surfaceError = normalizeRows(definition.surfaceRuns, false)
+  if surfaceError then return nil, surfaceError end
 
   local surfaceZones = {}
   for index, raw in ipairs(definition.surfaceZones or {}) do
@@ -75,14 +128,23 @@ function VolumeRegistry:register(id, definition, owner)
     owner = owner,
     mapId = mapId,
     zoneId = definition.zoneId,
+    surfaceMapId = definition.surfaceMapId,
+    biome = definition.biome,
+    floorColor = definition.floorColor,
     surfaceHeight = number(definition.surfaceHeight, 48),
     minDepth = number(definition.minDepth, 4),
     defaultDepth = number(definition.defaultDepth, 16),
     defaultFloorDepth = number(definition.defaultFloorDepth, 42),
     seabedClearance = number(definition.seabedClearance, 3),
+    widthCells = number(definition.widthCells, nil),
+    heightCells = number(definition.heightCells, nil),
+    connectedEdges = definition.connectedEdges or {},
     swimVolumes = swimVolumes,
+    cellRuns = cellRuns,
     depthZones = depthZones,
+    depthRuns = depthRuns,
     surfaceZones = surfaceZones,
+    surfaceRuns = surfaceRuns,
   }
 
   entry.defaultDepth = math.max(entry.minDepth,
@@ -102,6 +164,7 @@ function VolumeRegistry:forMap(mapId, x, y)
   local candidates = self.byMap[mapId] or {}
   if x == nil or y == nil then return candidates[1] end
   for _, volume in ipairs(candidates) do
+    if volume.cellRuns and rowContains(volume.cellRuns, x, y) then return volume end
     for _, rect in ipairs(volume.swimVolumes) do
       if contains(rect, x, y) then return volume end
     end
@@ -117,6 +180,10 @@ function VolumeRegistry:floorDepthAt(mapId, x, y)
   local volume = self:forMap(mapId, x, y)
   if not volume then return nil end
   local floorDepth = volume.defaultFloorDepth
+  if volume.depthRuns then
+    local hit, run = rowContains(volume.depthRuns, x, y)
+    if hit and run and run.floorDepth then floorDepth = run.floorDepth end
+  end
   for _, zone in ipairs(volume.depthZones) do
     if contains(zone, x, y) then
       floorDepth = math.min(floorDepth, zone.floorDepth)
@@ -134,10 +201,18 @@ end
 function VolumeRegistry:isSurfaceZone(mapId, x, y)
   local volume = self:forMap(mapId, x, y)
   if not volume then return false end
+  if volume.surfaceRuns and rowContains(volume.surfaceRuns, x, y) then
+    return true, { id = volume.id .. ":generated_surface" }, volume
+  end
   for _, zone in ipairs(volume.surfaceZones) do
     if contains(zone, x, y) then return true, zone, volume end
   end
   return false, nil, volume
+end
+
+function VolumeRegistry:rowsForMap(mapId)
+  local volume = self:forMap(mapId)
+  return volume and volume.cellRuns or nil, volume
 end
 
 return VolumeRegistry
