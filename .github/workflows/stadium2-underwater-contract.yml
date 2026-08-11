@@ -1,0 +1,47 @@
+name: Stadium 2 underwater contract
+
+on:
+  push:
+    branches:
+      - dev/stadium2-underwater
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Lua
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lua5.4
+      - name: Parse all Deep Dive Lua sources
+        run: find dramatic_deep_dive -name '*.lua' -print0 | xargs -0 -n1 luac5.4 -p
+      - name: Test DSM4 Stadium 2 pack reader
+        run: lua5.4 dramatic_deep_dive/tools/test_stadium2_pack.lua
+      - name: Test Stadium 2 underwater scale and LOD policy
+        run: lua5.4 dramatic_deep_dive/tools/test_stadium2_underwater_policy.lua
+      - name: Guard underwater Stadium architecture
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'main_stadium.lua' dramatic_deep_dive/manifest.json
+          grep -q 'crystal_251/stadium2' dramatic_deep_dive/src/Stadium2Pack.lua
+          grep -q 'StadiumRig' dramatic_deep_dive/src/Stadium2Underwater.lua
+          grep -q 'moving_loop_recovery' dramatic_deep_dive/src/Stadium2Underwater.lua
+          grep -q 'MAX_ACTIVE_MODELS = 10' dramatic_deep_dive/src/Stadium2Underwater.lua
+          grep -q 'MODEL_RANGE_CELLS = 24' dramatic_deep_dive/src/Stadium2Underwater.lua
+          grep -q 'deepDiveStadium2' dramatic_deep_dive/src/Stadium2Underwater.lua
+          grep -q 'C2DSM10' dramatic_deep_dive/src/Stadium2Bootstrap.lua
+          grep -q 'StadiumBuild' dramatic_deep_dive/src/Stadium2Bootstrap.lua
+          grep -q 'battle_art_requires_prebuilt_cache' dramatic_deep_dive/src/Stadium2Bootstrap.lua
+          grep -q 'specialSpritesBySwimmer' dramatic_deep_dive/main_stadium.lua
+          grep -q 'rawAvailable(dex, false)' dramatic_deep_dive/main_stadium.lua
+          ! grep -q 'OverworldState.update%s*=' dramatic_deep_dive/src/Stadium2Underwater.lua
+          ! grep -q 'debug.setupvalue' dramatic_deep_dive/src/Stadium2Underwater.lua

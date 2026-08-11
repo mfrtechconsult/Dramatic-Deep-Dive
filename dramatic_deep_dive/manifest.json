@@ -1,9 +1,9 @@
 {
   "id": "DRAMATIC_DEEP_DIVE",
   "name": "Dramatic Deep Dive",
-  "version": "0.5.0",
+  "version": "0.6.0-alpha.3",
   "api": 2,
-  "entry": "main.lua",
+  "entry": "main_stadium.lua",
   "profile": "content",
   "category": "GAMEPLAY",
   "game_version": "0.0.0-dev || >=0.1.69 <2.0.0",
@@ -14,7 +14,9 @@
     "overworld_wild_spawns",
     "wild_skies",
     "DRAMALESS_SHAPE",
+    "DRAMATIC_SHAPE",
     "BATTLE_ART_VOXEL_FORK@>=1.7.6 <2.0.0",
+    "STADIUM_OVERWORLD_MODELS",
     "DRAMATIC_SKY_RIDE@>=0.1.1 <2.0.0",
     "CRYSTAL_251"
   ],
@@ -24,6 +26,6 @@
     "filesystem"
   ],
   "affects_link": true,
-  "description": "Full-Kanto Deep Dive with deliberately expanded underwater geography: open ocean and Cinnabar use 3x horizontal scale (9x swim area), coasts, harbors and major underwater caves use 2x scale, while inland freshwater remains close to Kanto scale. HM08 is given unconditionally by a fixed researcher outside, just left of the Cinnabar Lab. Includes continuous water under bridges and pontoons, visible-only Wilds encounters, seamless underwater connections, biome-aware geology, Pokedex-scaled wildlife, salvage and HM08 DIVE.",
+  "description": "Full-Kanto Deep Dive 0.6 preview with modern Battle Art/Dramaless support plus an official legacy Dramatic Shape path. Legacy Dramatic Shape + Pokemon Stadium Overworld Models delegates underwater Pokemon rendering to the existing Stadium renderer to avoid double VoxelScene ownership; legacy Dramatic Shape without that add-on can use Deep Dive's native Stadium 2 path when the required StadiumRig/cache stack exists. HM08 progression now survives renderer discovery failure. Includes animated nearby Stadium 2 wildlife on modern providers, free-depth swimming, expanded Kanto seabeds, visible-only Wilds encounters, salvage and HM08 DIVE.",
   "github": "mfrtechconsult/Dramatic-Deep-Dive"
 }

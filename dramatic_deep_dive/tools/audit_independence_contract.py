@@ -10,6 +10,8 @@ allowed_optional={
     "overworld_wild_spawns",
     "wild_skies",
     "DRAMALESS_SHAPE",
+    "DRAMATIC_SHAPE",
+    "STADIUM_OVERWORLD_MODELS",
     "CRYSTAL_251",
     "DRAMATIC_SKY_RIDE@>=0.1.1 <2.0.0",
     "BATTLE_ART_VOXEL_FORK@>=1.7.6 <2.0.0",
