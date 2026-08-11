@@ -1,0 +1,37 @@
+name: Legacy Dramatic Shape contract
+
+on:
+  push:
+    branches:
+      - dev/stadium2-underwater
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Lua
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lua5.4
+      - name: Parse all Deep Dive Lua sources
+        run: find dramatic_deep_dive -name '*.lua' -print0 | xargs -0 -n1 luac5.4 -p
+      - name: Test legacy provider and Stadium delegation
+        run: lua5.4 dramatic_deep_dive/tools/test_legacy_provider.lua
+      - name: Guard legacy compatibility contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'id = "DRAMATIC_SHAPE"' dramatic_deep_dive/src/VoxelProvider.lua
+          grep -q 'legacy = true' dramatic_deep_dive/src/VoxelProvider.lua
+          grep -q 'STADIUM_OVERWORLD_MODELS' dramatic_deep_dive/src/Stadium2LegacyBridge.lua
+          grep -q 'legacy_delegate' dramatic_deep_dive/main_stadium.lua
+          grep -q '"DRAMATIC_SHAPE"' dramatic_deep_dive/manifest.json
+          grep -q '"STADIUM_OVERWORLD_MODELS"' dramatic_deep_dive/manifest.json
