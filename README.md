@@ -2,7 +2,7 @@
 
 Dramatic Deep Dive is an **independent HM08 DIVE and free-depth underwater gameplay mod for Gen1Recomp**.
 
-The `0.5.0-alpha.6` development line replaces the old handful of handcrafted underwater maps with a **generated full-Kanto seabed network** and deliberately gives the underwater world more horizontal room than the compressed Gen I surface maps.
+The `0.5.0` release replaces the old handful of handcrafted underwater maps with a **generated full-Kanto seabed network** and deliberately gives the underwater world more horizontal room than the compressed Gen I surface maps.
 
 The surface rule is simple:
 
@@ -86,7 +86,7 @@ With a scaled underwater profile:
 - all real surface-water cells remain covered;
 - no visual DIVE mask is rendered.
 
-DIVE still requires the normal Deep Dive progression contract: HM08 DIVE, a compatible party Pokémon and the configured field-move badge gate.
+DIVE still requires HM08 DIVE, a compatible party Pokémon and the configured field-move badge gate. The HM itself is now available immediately from the Cinnabar researcher described below.
 
 ## Seamless underwater Kanto
 
@@ -228,6 +228,14 @@ Deep Dive provides:
 
 Crystal 251 remains optional and is integrated additively when installed.
 
+## Obtaining HM08 DIVE
+
+A fixed researcher stands **outside on Cinnabar Island, immediately to the left of the Pokémon Lab**.
+
+Talk to him and he gives **HM08 DIVE immediately**. There is **no badge requirement, no Blaine requirement and no story/TM35 prerequisite for obtaining HM08**. If HM08 is already in the bag, he simply reminds the player how to use it.
+
+The normal field-move eligibility rules still apply when actually using DIVE.
+
 ## Renderer requirements
 
 Supported voxel providers:
@@ -239,7 +247,7 @@ Dramatic Sky Ride, Wild Skies and Wilds of Kanto are optional compatibility inte
 
 ## Validation
 
-The development branch has a dedicated **Kanto seabed contract** in addition to compatibility and launcher-packaging workflows.
+A dedicated **Kanto seabed contract** runs alongside compatibility and launcher-packaging workflows.
 
 Automated contracts verify:
 
@@ -261,8 +269,8 @@ Automated contracts verify:
 - Dramatic Sky Ride / Wild Skies compatibility;
 - launcher-ready packaging.
 
-## Development status
+## Release status
 
-Current development preview: **0.5.0-alpha.6**.
+Current stable release: **Dramatic Deep Dive 0.5.0**.
 
-This branch is intended for full-Kanto gameplay testing. The published `main` release remains the stable `0.4.0` line until the overhaul is explicitly promoted after testing.
+The Full-Kanto seabed overhaul is published on `main`. GitHub releases include a launcher-ready ZIP with `manifest.json` and `main.lua` at the archive root.
