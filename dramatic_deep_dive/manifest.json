@@ -1,7 +1,7 @@
 {
   "id": "DRAMATIC_DEEP_DIVE",
   "name": "Dramatic Deep Dive",
-  "version": "0.6.0-alpha.3",
+  "version": "0.6.0",
   "api": 2,
   "entry": "main_stadium.lua",
   "profile": "content",
@@ -26,6 +26,6 @@
     "filesystem"
   ],
   "affects_link": true,
-  "description": "Full-Kanto Deep Dive 0.6 preview with modern Battle Art/Dramaless support plus an official legacy Dramatic Shape path. Legacy Dramatic Shape + Pokemon Stadium Overworld Models delegates underwater Pokemon rendering to the existing Stadium renderer to avoid double VoxelScene ownership; legacy Dramatic Shape without that add-on can use Deep Dive's native Stadium 2 path when the required StadiumRig/cache stack exists. HM08 progression now survives renderer discovery failure. Includes animated nearby Stadium 2 wildlife on modern providers, free-depth swimming, expanded Kanto seabeds, visible-only Wilds encounters, salvage and HM08 DIVE.",
+  "description": "Full-Kanto Deep Dive 0.6 with animated Pokemon Stadium 2 underwater wildlife, free-depth swimming, expanded Kanto seabeds, visible-only Wilds encounters, salvage and HM08 DIVE. Supports modern Battle Art/Dramaless providers plus an official legacy Dramatic Shape path; Dramatic Shape + Pokemon Stadium Overworld Models delegates underwater Pokemon rendering to the existing Stadium renderer to avoid double VoxelScene ownership.",
   "github": "mfrtechconsult/Dramatic-Deep-Dive"
 }
