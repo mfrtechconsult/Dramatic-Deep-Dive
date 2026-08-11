@@ -33,8 +33,10 @@ return function(mod)
 
   local Stadium2Pack = loadChunk(mod, "src/Stadium2Pack.lua")
   local Stadium2Bootstrap = loadChunk(mod, "src/Stadium2Bootstrap.lua")
+  local Stadium2ProviderCompat = loadChunk(mod, "src/Stadium2ProviderCompat.lua")
   local Stadium2Underwater = loadChunk(mod, "src/Stadium2Underwater.lua")
-  if not (Stadium2Pack and Stadium2Bootstrap and Stadium2Underwater) then return end
+  if not (Stadium2Pack and Stadium2Bootstrap and Stadium2ProviderCompat
+      and Stadium2Underwater) then return end
 
   -- A shiny pack is optional. If Crystal 251 only generated the normal model,
   -- a shiny entity must still get a valid 3D body rather than falling all the
@@ -54,6 +56,12 @@ return function(mod)
   bootstrap:install()
 
   local service = Stadium2Underwater.new(mod, Stadium2Pack)
+
+  -- Deep Dive normally prefers Battle Art as its active voxel renderer. Battle
+  -- Art has the Voxel3D/shadow stack but intentionally does not ship StadiumRig.
+  -- Borrow only the compatible CPU Stadium rig/parser from Dramaless/Dramatic
+  -- Shape when needed, while all actual drawing remains on the active provider.
+  Stadium2ProviderCompat.install(service, mod)
 
   -- Stadium2Underwater caches the sentinel sprite by species/image for normal
   -- reuse. That is correct for a one-model mount, but underwater schools can
@@ -81,14 +89,16 @@ return function(mod)
     return baseSprite
   end
 
-  service:install()
+  local stadiumActive = service:install()
 
   mod.exports.stadium2Underwater = {
-    api = 2,
+    api = 3,
+    active = function() return stadiumActive == true end,
     available = function(dex) return Stadium2Pack.available(dex, false) end,
     stats = function()
       local out = service:stats()
       out.bootstrap = bootstrap:status()
+      out.rigProvider = service.rigProviderId
       return out
     end,
     bootstrapStatus = function() return bootstrap:status() end,
