@@ -32,8 +32,9 @@ return function(mod)
   end
 
   local Stadium2Pack = loadChunk(mod, "src/Stadium2Pack.lua")
+  local Stadium2Bootstrap = loadChunk(mod, "src/Stadium2Bootstrap.lua")
   local Stadium2Underwater = loadChunk(mod, "src/Stadium2Underwater.lua")
-  if not (Stadium2Pack and Stadium2Underwater) then return end
+  if not (Stadium2Pack and Stadium2Bootstrap and Stadium2Underwater) then return end
 
   -- A shiny pack is optional. If Crystal 251 only generated the normal model,
   -- a shiny entity must still get a valid 3D body rather than falling all the
@@ -43,6 +44,14 @@ return function(mod)
     if rawAvailable(dex, shiny) then return true end
     return shiny == true and rawAvailable(dex, false) or false
   end
+
+  -- Cache generation is deliberately separate from rendering. Existing DSM4
+  -- files are consumed immediately. If the cache is absent, Crystal 251 plus
+  -- a full Dramaless/Dramatic Shape importer can attach the same Stadium 2
+  -- bridge used by the Sky Ride experiment. Battle Art remains a renderer-only
+  -- provider and simply waits for a prebuilt cache.
+  local bootstrap = Stadium2Bootstrap.new(mod, Stadium2Pack)
+  bootstrap:install()
 
   local service = Stadium2Underwater.new(mod, Stadium2Pack)
 
@@ -75,9 +84,15 @@ return function(mod)
   service:install()
 
   mod.exports.stadium2Underwater = {
-    api = 1,
+    api = 2,
     available = function(dex) return Stadium2Pack.available(dex, false) end,
-    stats = function() return service:stats() end,
+    stats = function()
+      local out = service:stats()
+      out.bootstrap = bootstrap:status()
+      return out
+    end,
+    bootstrapStatus = function() return bootstrap:status() end,
+    retryBootstrap = function() return bootstrap:try("manual_retry") end,
     worldHeight = Stadium2Underwater.worldHeight,
     clearCache = function()
       service:clear()
