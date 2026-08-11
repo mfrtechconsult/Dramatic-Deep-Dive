@@ -25,6 +25,8 @@ jobs:
         run: find dramatic_deep_dive -name '*.lua' -print0 | xargs -0 -n1 luac5.4 -p
       - name: Test DSM4 Stadium 2 pack reader
         run: lua5.4 dramatic_deep_dive/tools/test_stadium2_pack.lua
+      - name: Test Stadium 2 underwater scale and LOD policy
+        run: lua5.4 dramatic_deep_dive/tools/test_stadium2_underwater_policy.lua
       - name: Guard underwater Stadium architecture
         shell: bash
         run: |
