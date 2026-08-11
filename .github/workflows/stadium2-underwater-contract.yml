@@ -34,7 +34,12 @@ jobs:
           grep -q 'StadiumRig' dramatic_deep_dive/src/Stadium2Underwater.lua
           grep -q 'moving_loop_recovery' dramatic_deep_dive/src/Stadium2Underwater.lua
           grep -q 'MAX_ACTIVE_MODELS = 10' dramatic_deep_dive/src/Stadium2Underwater.lua
+          grep -q 'MODEL_RANGE_CELLS = 24' dramatic_deep_dive/src/Stadium2Underwater.lua
           grep -q 'deepDiveStadium2' dramatic_deep_dive/src/Stadium2Underwater.lua
-          grep -q 'Pokedex' dramatic_deep_dive/README.md || true
+          grep -q 'C2DSM10' dramatic_deep_dive/src/Stadium2Bootstrap.lua
+          grep -q 'StadiumBuild' dramatic_deep_dive/src/Stadium2Bootstrap.lua
+          grep -q 'battle_art_requires_prebuilt_cache' dramatic_deep_dive/src/Stadium2Bootstrap.lua
+          grep -q 'specialSpritesBySwimmer' dramatic_deep_dive/main_stadium.lua
+          grep -q 'rawAvailable(dex, false)' dramatic_deep_dive/main_stadium.lua
           ! grep -q 'OverworldState.update%s*=' dramatic_deep_dive/src/Stadium2Underwater.lua
           ! grep -q 'debug.setupvalue' dramatic_deep_dive/src/Stadium2Underwater.lua
