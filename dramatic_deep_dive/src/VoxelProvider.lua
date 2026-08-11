@@ -15,6 +15,12 @@ local CANDIDATES = {
     label = "Dramaless Shape",
     pipelines = { "st_voxel", "voxel" },
   },
+  {
+    id = "DRAMATIC_SHAPE",
+    label = "Dramatic Shape (legacy)",
+    pipelines = { "voxel", "st_voxel" },
+    legacy = true,
+  },
 }
 
 local function find(mod, id)
@@ -46,6 +52,7 @@ function VoxelProvider.new(mod)
     pipelineCandidates = nil,
     installed = {},
     conflict = false,
+    legacy = false,
   }, VoxelProvider)
 end
 
@@ -64,7 +71,7 @@ function VoxelProvider:discover()
   local selected = installed[1]
   if not selected then
     if self.mod and self.mod.log then
-      self.mod.log:error("Dramatic Deep Dive needs Battle Art Voxel Fork or Dramaless Shape; neither public Voxel API was found")
+      self.mod.log:error("Dramatic Deep Dive needs Battle Art, Dramaless Shape, or legacy Dramatic Shape; no public voxel API was found")
     end
     return false
   end
@@ -74,6 +81,7 @@ function VoxelProvider:discover()
   self.providerLabel = selected.candidate.label
   self.lib = selected.lib
   self.pipelineCandidates = selected.candidate.pipelines
+  self.legacy = selected.candidate.legacy == true
 
   local exports = selected.handle.exports or {}
   local published = exports.pipelines
@@ -84,7 +92,7 @@ function VoxelProvider:discover()
   if self.conflict and self.mod and self.mod.log then
     self.mod.log:warn("multiple voxel providers detected; using %s and ignoring the others for Deep Dive", tostring(self.providerLabel))
   elseif self.mod and self.mod.log then
-    self.mod.log:info("Deep Dive voxel provider: %s", tostring(self.providerLabel))
+    self.mod.log:info("Deep Dive voxel provider: %s%s", tostring(self.providerLabel), self.legacy and " [legacy compatibility]" or "")
   end
 
   if self.mod then
@@ -95,8 +103,10 @@ function VoxelProvider:discover()
       version = self.handle and (self.handle.version or (self.handle.exports and self.handle.exports.version)) or nil,
       voxelPipeline = self:pipelineId(),
       conflict = self.conflict,
+      legacy = self.legacy,
       battleArt = self.providerId == "BATTLE_ART_VOXEL_FORK" and self.handle or nil,
       dramaless = self.providerId == "DRAMALESS_SHAPE" and self.handle or nil,
+      dramaticShape = self.providerId == "DRAMATIC_SHAPE" and self.handle or nil,
     }
   end
   return true
@@ -110,7 +120,10 @@ function VoxelProvider:installCompatibilityShim()
   local selected = self.handle
   local providerId = self.providerId
   self.mod.find = function(modSelf, id)
-    if id == "BATTLE_ART_VOXEL_FORK" and providerId == "DRAMALESS_SHAPE" then
+    -- Deep Dive's older rendering modules historically asked only for Battle
+    -- Art.  Keep that private compatibility surface working for BOTH alternate
+    -- providers without changing what any other mod sees globally.
+    if id == "BATTLE_ART_VOXEL_FORK" and providerId ~= "BATTLE_ART_VOXEL_FORK" then
       return selected
     end
     return originalFind(modSelf, id)
@@ -124,6 +137,10 @@ end
 
 function VoxelProvider:label()
   return self.providerLabel
+end
+
+function VoxelProvider:isLegacy()
+  return self.legacy == true
 end
 
 function VoxelProvider:pipelineId()
