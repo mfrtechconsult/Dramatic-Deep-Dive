@@ -12,9 +12,9 @@ local NONE = 0xFFFF
 local MORPH_SCALE = {
   GYARADOS = 1.18, DRATINI = 1.06, DRAGONAIR = 1.14,
   LAPRAS = 1.12, TENTACRUEL = 1.08, TENTACOOL = 0.96,
-  ONIX = 1.14, STEELIX = 1.16, WAILMER = 1.12, WAILORD = 1.22,
-  MANTINE = 1.12, KINGDRA = 1.06, CLOYSTER = 1.04,
-  SEADRA = 1.02, DEWGONG = 1.05, VAPOREON = 1.03,
+  ONIX = 1.14, STEELIX = 1.16, MANTINE = 1.12,
+  KINGDRA = 1.06, CLOYSTER = 1.04, SEADRA = 1.02,
+  DEWGONG = 1.05, VAPOREON = 1.03, QWILFISH = 0.92,
 }
 
 local function clamp(v, lo, hi) return math.max(lo, math.min(hi, v)) end
@@ -27,6 +27,9 @@ local function dexHeightFeet(species)
   return feet > 0 and feet or 3
 end
 
+-- Stadium's raw model range is much wider than one shared overworld camera can
+-- frame. Keep Pokédex ordering, compress the extremes, then apply a handful of
+-- morphology corrections for long-bodied sea Pokémon.
 local function worldHeight(species)
   local feet = math.max(0.5, dexHeightFeet(species))
   local h = 16 * (feet / 3) ^ 0.58
@@ -49,9 +52,9 @@ local function dynamicAnimation(model, PackModule)
     for _, comps in pairs(tracks) do
       for _, values in ipairs(comps or {}) do
         if type(values) == "table" and #values > 1 then
-          local first = values[1]
+          local first = values[1] or 0
           for i = 2, #values do
-            if math.abs((values[i] or 0) - (first or 0)) > 1e-6 then return true end
+            if math.abs((values[i] or 0) - first) > 1e-6 then return true end
           end
         end
       end
@@ -71,11 +74,8 @@ local function dynamicAnimation(model, PackModule)
     end
   end
   return firstLooping or firstMoving or requested or 1,
-    (firstLooping and "moving_loop_recovery") or (firstMoving and "moving_clip_recovery") or "static_fallback"
-end
-
-local function isShiny(swimmer)
-  return swimmer and swimmer.shiny == true
+    (firstLooping and "moving_loop_recovery")
+      or (firstMoving and "moving_clip_recovery") or "static_fallback"
 end
 
 local function textureImage(slot)
@@ -95,13 +95,19 @@ local function textureImage(slot)
   return slot.image or nil
 end
 
-function Stadium2Underwater.new(mod, controller, wildlife, voxelProvider, Pack)
+local function activeVoxelLib(mod)
+  local state = mod.exports and mod.exports._dramaticProviderState
+  local handle = state and state.handle
+  local lib = handle and handle.exports and handle.exports.lib
+  if type(lib) == "table" and type(lib.require) == "function" then return lib end
+  return nil
+end
+
+function Stadium2Underwater.new(mod, Pack)
   return setmetatable({
     mod = mod,
-    controller = controller,
-    wildlife = wildlife,
-    provider = voxelProvider,
     Pack = Pack,
+    lib = nil,
     Rig = nil,
     ProviderPack = nil,
     Mat4 = nil,
@@ -113,6 +119,7 @@ function Stadium2Underwater.new(mod, controller, wildlife, voxelProvider, Pack)
     ownerByMesh = setmetatable({}, { __mode = "k" }),
     selected = setmetatable({}, { __mode = "k" }),
     specialSprites = {},
+    attached = setmetatable({}, { __mode = "k" }),
     installed = false,
     loaded = 0,
     failed = 0,
@@ -120,21 +127,41 @@ function Stadium2Underwater.new(mod, controller, wildlife, voxelProvider, Pack)
   }, Stadium2Underwater)
 end
 
+function Stadium2Underwater:module(name)
+  if not self.lib then return nil end
+  local ok, value = pcall(self.lib.require, name)
+  return ok and value or nil
+end
+
 function Stadium2Underwater:discover()
-  self.Rig = self.provider and self.provider:module("StadiumRig") or nil
-  self.ProviderPack = self.provider and self.provider:module("StadiumPack") or nil
-  self.Mat4 = self.provider and self.provider:module("Mat4") or nil
-  self.Voxel3D = self.provider and self.provider:module("Voxel3D") or nil
-  self.SpriteBillboards = self.provider and self.provider:module("SpriteBillboards") or nil
-  self.ShadowMap = self.provider and self.provider:module("ShadowMap") or nil
+  self.lib = activeVoxelLib(self.mod)
+  self.Rig = self:module("StadiumRig")
+  self.ProviderPack = self:module("StadiumPack")
+  self.Mat4 = self:module("Mat4")
+  self.Voxel3D = self:module("Voxel3D")
+  self.SpriteBillboards = self:module("SpriteBillboards")
+  self.ShadowMap = self:module("ShadowMap")
   return type(self.Rig) == "table" and type(self.Rig.new) == "function"
     and self.ProviderPack and type(self.ProviderPack.tracks) == "function"
     and self.Mat4 and self.Voxel3D and self.SpriteBillboards and self.ShadowMap
 end
 
+function Stadium2Underwater:isDeepDiveActive()
+  local fn = self.mod.exports and self.mod.exports.isActive
+  if type(fn) ~= "function" then return false end
+  local ok, active = pcall(fn)
+  return ok and active == true
+end
+
+function Stadium2Underwater:currentVolume()
+  local fn = self.mod.exports and self.mod.exports.currentVolume
+  if type(fn) ~= "function" then return nil end
+  local ok, volume = pcall(fn)
+  return ok and volume or nil
+end
+
 function Stadium2Underwater:releaseRuntime(runtime)
-  if not runtime then return end
-  if runtime.rig and runtime.rig.release then pcall(runtime.rig.release, runtime.rig) end
+  if runtime and runtime.rig and runtime.rig.release then pcall(runtime.rig.release, runtime.rig) end
 end
 
 function Stadium2Underwater:clear()
@@ -145,7 +172,25 @@ function Stadium2Underwater:clear()
   self.runtimeByDef = setmetatable({}, { __mode = "k" })
   self.ownerByMesh = setmetatable({}, { __mode = "k" })
   self.selected = setmetatable({}, { __mode = "k" })
-  self.specialSprites = {}
+end
+
+function Stadium2Underwater:attachEntity(swimmer)
+  if not (swimmer and swimmer.deepDiveWildlife and type(swimmer.pose) == "function") then return end
+  if self.attached[swimmer] then return end
+  self.attached[swimmer] = true
+  local service, innerPose = self, swimmer.pose
+  swimmer.pose = function(entity, ...)
+    local sprite, px, py, facing, phase, flip, hopping = innerPose(entity, ...)
+    sprite = service:spriteFor(entity, sprite)
+    return sprite, px, py, facing, phase, flip, hopping
+  end
+end
+
+function Stadium2Underwater:scanWildlife()
+  local ow = Game.overworld
+  for _, entity in ipairs(ow and ow.entities or {}) do
+    if entity and entity.deepDiveWildlife then self:attachEntity(entity) end
+  end
 end
 
 function Stadium2Underwater:ensureRuntime(swimmer)
@@ -154,8 +199,8 @@ function Stadium2Underwater:ensureRuntime(swimmer)
   if hit then return hit end
   local def = Game.data and Game.data.pokemon and Game.data.pokemon[swimmer.species]
   local dex = def and tonumber(def.dex)
-  if not dex or not self.Pack.available(dex, isShiny(swimmer)) then return nil end
-  local model = self.Pack.load(dex, isShiny(swimmer))
+  if not dex or not self.Pack.available(dex, swimmer.shiny == true) then return nil end
+  local model = self.Pack.load(dex, swimmer.shiny == true)
   if not model or model.staticPose then return nil end
   local ok, rig = pcall(self.Rig.new, model)
   if not ok or not rig or not rig.parts or not rig.parts[1] or not rig.parts[1].mesh then
@@ -170,8 +215,7 @@ function Stadium2Underwater:ensureRuntime(swimmer)
     swimmer = swimmer, model = model, rig = rig, dex = dex,
     species = swimmer.species, anim = anim, animSource = source,
     time = math.random() * 4, yaw = swimmer.heading or 0, pitch = 0,
-    desiredHeight = worldHeight(swimmer.species),
-    sentinel = rig.parts[1].mesh,
+    desiredHeight = worldHeight(swimmer.species), sentinel = rig.parts[1].mesh,
   }
   self.runtimeBySwimmer[swimmer] = runtime
   self.ownerByMesh[runtime.sentinel] = runtime
@@ -202,11 +246,12 @@ function Stadium2Underwater:poseRuntime(runtime, dt)
   local targetPitch = clamp(-depthDelta / 90, -0.24, 0.24)
   runtime.pitch = runtime.pitch + (targetPitch - runtime.pitch) * clamp(dt * 3.5, 0, 1)
 
-  local frame = runtime.time * 30
   local record = model.anims and model.anims[runtime.anim]
   local ok = pcall(function()
-    rig:pose(runtime.anim, frame, true)
+    rig:pose(runtime.anim, runtime.time * 30, true)
     if rig.anchor then rig:anchor(TRAVEL_LIMIT, dt) end
+    -- StadiumRig uses yaw while skinning to keep directional lighting correct;
+    -- the world matrix below carries the same yaw for actual placement.
     if rig.skin then rig:skin(runtime.yaw) end
     if rig.textures then rig:textures(record and record.aux or nil) end
     self:applyEffectTextures(runtime)
@@ -216,7 +261,7 @@ end
 
 function Stadium2Underwater:modelMatrix(runtime)
   local swimmer = runtime and runtime.swimmer
-  local volume = self.controller and self.controller.state and self.controller.state.volume
+  local volume = self:currentVolume()
   if not (swimmer and volume and self.Mat4) then return nil end
   local model = runtime.model
   local root = tonumber(model.rootScale) or 1
@@ -224,7 +269,8 @@ function Stadium2Underwater:modelMatrix(runtime)
   local rawHeight = math.max(tonumber(model.height) or 1, 1e-6)
   local scale = root * runtime.desiredHeight / rawHeight
   local rawFloor = (tonumber(model.floor) or 0) / root
-  local bob = math.sin((runtime.time or 0) * 1.7 + runtime.dex * 0.31) * math.min(1.1, runtime.desiredHeight * 0.035)
+  local bob = math.sin((runtime.time or 0) * 1.7 + runtime.dex * 0.31)
+    * math.min(1.1, runtime.desiredHeight * 0.035)
   local y = (tonumber(volume.surfaceHeight) or 0) - (tonumber(swimmer.depth) or 0) + bob
   local M = self.Mat4
   local matrix = M.mul(M.translate((swimmer.px or 0) + 8, y, (swimmer.py or 0) + 8), M.rotateY(runtime.yaw or 0))
@@ -255,31 +301,27 @@ end
 
 function Stadium2Underwater:selectNearest()
   self.selected = setmetatable({}, { __mode = "k" })
-  local ow = Game.overworld
-  local player = ow and ow.player
+  local ow, player = Game.overworld, Game.overworld and Game.overworld.player
   if not player then return end
   local px, py = player.px or player.cellX * 16, player.py or player.cellY * 16
   local candidates = {}
-  for _, swimmer in ipairs(self.wildlife and self.wildlife.swimmers or {}) do
-    if not swimmer.dead then
+  for _, swimmer in ipairs(ow.entities or {}) do
+    if swimmer and swimmer.deepDiveWildlife and not swimmer.dead then
       local dx, dy = (swimmer.px or 0) - px, (swimmer.py or 0) - py
       local cells = math.sqrt(dx * dx + dy * dy) / 16
-      if cells <= MODEL_RANGE_CELLS then
-        candidates[#candidates + 1] = { swimmer = swimmer, d = cells }
-      end
+      if cells <= MODEL_RANGE_CELLS then candidates[#candidates + 1] = { swimmer = swimmer, d = cells } end
     end
   end
   table.sort(candidates, function(a, b) return a.d < b.d end)
-  for i = 1, math.min(MAX_ACTIVE_MODELS, #candidates) do
-    self.selected[candidates[i].swimmer] = true
-  end
+  for i = 1, math.min(MAX_ACTIVE_MODELS, #candidates) do self.selected[candidates[i].swimmer] = true end
 end
 
 function Stadium2Underwater:tick(dt)
-  if not (self.controller and self.controller:isActive()) then
+  if not self:isDeepDiveActive() then
     if next(self.runtimeBySwimmer) then self:clear() end
     return
   end
+  self:scanWildlife()
   self:selectNearest()
   for swimmer, runtime in pairs(self.runtimeBySwimmer) do
     if swimmer.dead or not self.selected[swimmer] then
@@ -294,8 +336,7 @@ function Stadium2Underwater:tick(dt)
 end
 
 function Stadium2Underwater:installProviderHooks()
-  local B, V, S = self.SpriteBillboards, self.Voxel3D, self.ShadowMap
-  local service = self
+  local B, V, S, service = self.SpriteBillboards, self.Voxel3D, self.ShadowMap, self
   if not B.dramaticDeepDiveStadium2Hook then
     local innerMesh, innerShadow = B.mesh, B.shadowQuad
     B.mesh = function(def, frame)
@@ -326,11 +367,8 @@ function Stadium2Underwater:installProviderHooks()
       if V.glass then V.glass(false) end
       local additive = {}
       for _, part in ipairs(runtime.rig.parts or {}) do
-        if part.prim and part.prim.additive then
-          additive[#additive + 1] = part
-        elseif part.texture then
-          rawDraw(part.mesh, part.texture, custom, 0, custom)
-        end
+        if part.prim and part.prim.additive then additive[#additive + 1] = part
+        elseif part.texture then rawDraw(part.mesh, part.texture, custom, 0, custom) end
       end
       if #additive > 0 and V.blend then V.blend("add") end
       for _, part in ipairs(additive) do
@@ -352,9 +390,7 @@ function Stadium2Underwater:installProviderHooks()
       local custom = service:modelMatrix(runtime)
       if not custom then return rawShadow(mesh, texture, matrix) end
       for _, part in ipairs(runtime.rig.parts or {}) do
-        if part.texture and not (part.prim and part.prim.additive) then
-          rawShadow(part.mesh, part.texture, custom)
-        end
+        if part.texture and not (part.prim and part.prim.additive) then rawShadow(part.mesh, part.texture, custom) end
       end
       return true
     end
@@ -400,6 +436,7 @@ function Stadium2Underwater:stats()
     cacheFormat = marker and marker.format or nil,
     activeModels = active,
     maxActiveModels = MAX_ACTIVE_MODELS,
+    modelRangeCells = MODEL_RANGE_CELLS,
     loaded = self.loaded,
     failed = self.failed,
     recoveredAnimations = self.recoveredAnimations,
