@@ -1,219 +1,276 @@
 # Dramatic Deep Dive
 
-Dramatic Deep Dive is an **independent HM08 DIVE / free-depth underwater gameplay mod** for Gen1Recomp.
+Dramatic Deep Dive is an **independent HM08 DIVE and free-depth underwater gameplay mod for Gen1Recomp**.
 
-Version **0.4.0** turns Kanto's ocean routes into large 3D underwater spaces with continuous depth control, living visible Pokémon, depth-aware ecology, salvage, reefs, ruins, caves, shipwrecks and abyss scenery.
+The `0.5.0` release replaces the old handful of handcrafted underwater maps with a **generated full-Kanto seabed network** and deliberately gives the underwater world more horizontal room than the compressed Gen I surface maps.
 
-It owns its own gameplay stack:
+The surface rule is simple:
 
-- `DIVE` and the stable item id `HM_DIVE`, presented as **HM08**;
-- its own progression and save state;
-- its own `DDD_*` underwater maps and DIVE/SURFACE links;
-- continuous depth, 1ST/3RD free swimming and seabed collision;
-- visible underwater Pokémon with depth-aware spawning;
-- Pokédex-height-based dynamic Pokémon sizing;
-- forgiving 3D overworld interception against visible Pokémon;
-- optional depth-based random encounters when Wilds of Kanto is not installed;
-- salvage, 3D reefs, ruins, caves, shipwrecks, abyss scenery and ambient life;
-- its own underwater mount selection and rider presentation;
-- standalone HM06 WHIRLPOOL and HM07 WATERFALL support.
+> **If Gen1Recomp considers a Kanto movement cell to be water, that cell is a valid DIVE/SURFACE point.**
 
-There is no cross-mod map handoff, zone aliasing or dependency on another DIVE implementation.
+The underwater rule is broader:
 
-## Recommended setup
+> **Bridges, docks and pontoons may be solid/walkable on the surface while the water body and seabed continue underneath them.**
 
-Dramatic Deep Dive can run independently, but the recommended full setup is:
+The old dark DIVE mask is removed. Real surface water itself is the DIVE area.
 
-1. **Dramatic Deep Dive**;
-2. **Battle Art Voxel Fork** `>=1.7.6 <2.0.0` for the recommended 3D voxel renderer;
-3. **Wilds of Kanto** (`overworld_wild_spawns`) for overworld Pokémon sprite integration;
-4. **Dramatic Sky Ride** and **Wild Skies** may be installed alongside it;
-5. **Crystal 251** is optional for Generation II content compatibility.
+## Full-Kanto seabed atlas
 
-**Dramaless Shape** is also supported as an alternative voxel provider.
+At startup, Deep Dive builds a Kanto Water Atlas from the real game data and `Map.defIsWaterCell` rules.
 
-## HM08 DIVE
+For every water-bearing surface map it records:
 
-Deep Dive can provide the complete DIVE contract by itself. If the generic `DIVE` move or `HM_DIVE` record already exists in the game data, Deep Dive reuses the same stable ids instead of creating duplicate content.
+- every real surface-water movement cell at the engine's native 16x16 movement-grid resolution;
+- inferred water underneath over-water structures such as narrow bridges, docks and pontoons;
+- connected underwater bodies, including bodies that cross normal map connections;
+- shoreline distance across the connected underwater network;
+- exact water-to-water cells at each map border;
+- a generated seabed depth for every underwater hydrology cell;
+- an underwater map id: `DDD_SEABED_<SURFACE_MAP>`.
 
-The visible machine number is always **HM08**.
+Surface collision and underwater hydrology are intentionally separate. Normal land remains solid underwater, but a surface structure which is demonstrably built across water no longer creates an artificial seabed wall.
 
-A historical Deep Dive receipt key from earlier alpha saves is retained internally so existing Deep Dive saves keep their progression. It is not used for presentation.
+## Wide underwater world scale
 
-## Underwater world
+Gen I Kanto is intentionally compact. Copying its 1:1 horizontal scale underwater made ocean routes feel like narrow corridors, so Deep Dive now preserves **topology** while expanding **underwater distance**.
 
-Deep Dive currently owns four large underwater areas:
+Current profile scaling:
 
-- `DDD_ROUTE19_REEF_PASSAGE` — reef passage and shelf exploration;
-- `DDD_ROUTE20_SEAFLOOR` — broad seafloor, trenches and Seafoam approaches;
-- `DDD_SEAFOAM_SUNKEN_CAVE` — submerged cave space;
-- `DDD_ROUTE21_ABYSS` — the deepest vertical exploration area.
+- **ocean** — `3x` width and `3x` height, approximately **9x the navigable swim area**;
+- **volcanic / Cinnabar** — `3x`, allowing a broad offshore shelf and large deep-water basin;
+- **coastal** — `2x`, approximately **4x the navigable area**;
+- **harbor / Vermilion** — `2x`, giving docks and port structures breathing room;
+- **cave / Seafoam** — `2x`, creating larger submerged chambers without making them feel like open sea;
+- **freshwater** — `1x`, keeping rivers and small inland ponds believable;
+- **marsh** — `1x`.
 
-The release maps are intentionally much larger than their early alpha versions so 3D swimming does not feel like moving through narrow corridors.
+A surface water cell is therefore a **geographic source cell**, not necessarily a single underwater movement cell. For example, one Route 19 water cell represents a `3x3` patch of underwater navigation space.
 
-The underwater scene includes:
+This has several important properties:
 
-- large continuous swim volumes;
-- deep vertical columns;
-- shelves, trenches and abyss zones;
-- reefs, rocks, ruins and wrecks;
-- bubble vents and ambient schools;
-- salvage points;
-- depth-aware lighting and atmosphere.
+- Kanto above the water is unchanged;
+- coastlines and islands keep the same overall shape;
+- connected route seams are expanded by the same factor and remain seamless;
+- bathymetry is stretched horizontally, producing longer and more natural slopes;
+- landmarks, salvage, fish schools, cave/harbor portals and other generated content are repositioned into the enlarged world;
+- decoration count grows more slowly than navigable area, intentionally leaving broad areas of open water.
 
-Instead of exposing a black void at the edge of the playable ocean, Deep Dive uses **dark blue distant boundaries** to suggest water continuing beyond the playable area. A lighter blue overhead plane recalls the surface above the player.
+## Bridges, docks and pontoons
 
-## Living ocean Pokémon
+The atlas uses two masks:
 
-Visible Pokémon are part of the underwater world rather than simple decorative fish meshes.
+1. **surface water** — the real Gen1Recomp water mask; this controls where DIVE and SURFACE are allowed;
+2. **underwater hydrology** — surface water plus cells inferred to contain water beneath an over-water structure; this controls underwater collision, bathymetry and connectivity.
 
-Their ecology is driven by the same depth bands used by Deep Dive's encounter tables:
+Generic Kanto bridge/pontoon strips are inferred when a short walkable surface gap is bounded by water on opposite sides. The inference is deliberately limited to small spans so broad land masses are not flooded accidentally.
 
-- species change as the player descends;
-- Pokémon move horizontally and vertically through the water column;
-- same-species Pokémon can loosely school together;
-- nearby Pokémon react to the player;
-- Pokémon avoid major scenery and swim-volume boundaries;
-- the ocean is populated gradually around the camera instead of spawning everything at once.
+`SHIP_PORT` also receives an explicit rule for the S.S. Anne boarding platform: Gen1Recomp intentionally classifies tile `$32` as land on that tileset, but Deep Dive preserves harbor water beneath the platform.
 
-### Dynamic Pokédex sizing
+Consequences:
 
-Visible underwater Pokémon are scaled from their **Pokédex height**.
+- the player cannot DIVE from a pontoon;
+- the player cannot SURFACE through a pontoon;
+- the player can swim underneath that pontoon;
+- water on both sides belongs to the same underwater body when the structure is genuinely over water;
+- real causeways and solid land remain underwater barriers.
 
-The scaling curve is intentionally compressed:
+## DIVE and SURFACE mapping
 
-- very small Pokémon stay readable;
-- medium species show a clear size difference;
-- large species such as Lapras or Gyarados become substantially more imposing;
-- extreme sizes are capped so a single Pokémon does not fill the entire camera.
+DIVE/SURFACE links are generated from the **surface-water** mask.
 
-The same scale is used by the 2D fallback and the voxel billboard path.
+With a scaled underwater profile:
 
-## Wilds of Kanto integration
+- a surface cell maps to the center of its corresponding enlarged underwater patch;
+- any valid underwater cell inside that patch maps back to the same surface cell;
+- inferred under-bridge / under-pier cells remain underwater-only and never become entry or exit points;
+- all real surface-water cells remain covered;
+- no visual DIVE mask is rendered.
 
-When **Wilds of Kanto** (`overworld_wild_spawns`) is installed, Deep Dive treats visible underwater Pokémon as the authoritative encounter layer.
+DIVE still requires HM08 DIVE, a compatible party Pokémon and the configured field-move badge gate. The HM itself is now available immediately from the Cinnabar researcher described below.
 
-In this configuration:
+## Seamless underwater Kanto
 
-- classic invisible random encounters are disabled while Deep Dive is active;
-- visible underwater Pokémon remain enabled;
-- approaching a visible Pokémon can start a battle against that exact species and level;
-- sprite resolution prefers installed compatible overworld/follower providers;
-- the Deep Dive transition uses the compatibility-safe travel path where required.
+Normal Kanto map connections are mirrored underwater whenever the two connected border cells belong to the same underwater hydrology network.
 
-Without Wilds of Kanto, Deep Dive keeps its normal low-frequency depth-based random encounter system.
+Connected seas and waterways can therefore continue beneath route boundaries without forcing the player to surface first. Connection offsets and seam openings scale with the underwater map, so the enlarged Route 19 / 20 / 21 ocean remains spatially consistent.
 
-## Forgiving underwater interception
+The seam system preserves:
 
-Underwater Pokémon move in three dimensions, so requiring pixel-perfect contact would make encounters frustrating.
+- current depth;
+- target depth;
+- underwater mount state;
+- free-camera state;
+- the normal Deep Dive runtime.
 
-Deep Dive therefore uses a forgiving interception envelope inspired by Dramatic Sky Ride's Wild Skies integration:
+Seam openings are tracked **cell by cell**. A route connection does not open an entire visual wall merely because one water cell connects.
 
-- roughly **3 cells of horizontal tolerance**;
-- roughly **80 px of vertical/depth tolerance**;
-- larger Pokémon receive a slightly more generous effective target volume;
-- when multiple Pokémon are close, the nearest valid target in 3D is selected;
-- the battle uses the exact visible Pokémon species and level;
-- a short post-battle rest prevents accidental chain encounters.
+## Submerged cave and harbor links
 
-This lets the player deliberately chase Pokémon without needing perfect overlap in both horizontal position and depth.
+Map-border connections are not enough for multi-floor caves and port structures. Deep Dive also derives a second network from real surface warps.
+
+A submerged portal can be generated when both ends are semantically compatible:
+
+- cave -> cave;
+- harbor -> harbor.
+
+Portal positions are moved to the correct coordinates after underwater scaling, so Seafoam and harbor links remain aligned with their enlarged spaces.
+
+## Shore-derived bathymetry
+
+The seabed is not a flat rectangle and depth is not assigned as a few abrupt authored boxes.
+
+Depth is derived from distance to the nearest true underwater boundary across connected maps:
+
+- immediate shoreline cells are relatively shallow;
+- the floor falls away as the player moves farther from land;
+- bridges and pontoons do not reset the shoreline calculation;
+- open sea becomes dramatically deeper than ponds or rivers;
+- neighboring map-border depths are reconciled;
+- horizontal world scaling stretches those depth steps over more physical distance, making ocean slopes less cramped;
+- biome-specific maximum depths keep freshwater, marsh, cave and ocean spaces distinct.
+
+Current profiles include `coastal`, `ocean`, `harbor`, `volcanic`, `cave`, `freshwater` and `marsh`.
+
+## Kanto regional identity
+
+The generator covers every detected water map but does not make every seabed identical.
+
+Examples include:
+
+- **Pallet Town** — shallow coastal shelf;
+- **Vermilion City / Vermilion Dock** — enlarged harbor, supports, submerged debris and continuous water beneath dock platforms;
+- **Cinnabar Island** — large volcanic shelf, dark spires and thermal vents;
+- **Routes 19 / 20 / 21** — the largest open-ocean spaces and deepest basins;
+- **Seafoam Islands** — enlarged submerged chambers, arches, dark formations, crystals/ice and boulder-linked geology;
+- **Cerulean waterways / Routes 24-25** — restrained freshwater beds;
+- **Fuchsia / Safari areas** — marsh and wetland seabeds.
+
+Underwater scaling does not invent unrelated new coastlines. It magnifies the proven hydrology topology into a larger navigable world.
+
+## Living underwater Pokémon
+
+Visible underwater Pokémon:
+
+- are chosen from the current biome/depth ecology;
+- move horizontally and vertically through the water column;
+- can loosely school with the same species;
+- react to the player and avoid major scenery/bounds;
+- use compatible overworld/follower sprite providers when available;
+- are dynamically scaled from Pokédex height;
+- can be intercepted with a forgiving 3D proximity envelope.
+
+The larger ocean does not require exact sprite collision. Interception keeps approximately **3 cells horizontal tolerance** plus **80 px depth tolerance**, with additional allowance for large Pokémon.
+
+## Wilds of Kanto
+
+When `overworld_wild_spawns` is installed:
+
+- classic invisible/random Deep Dive encounters are hard-disabled;
+- suppression is enforced through Gen1Recomp's public `encounter.roll` and `encounter.species` hooks;
+- generated underwater engine-facing encounter tables remain at rate `0`;
+- visible Deep Dive wildlife remains active;
+- the visible Pokémon being intercepted is the Pokémon used for the battle.
+
+Without Wilds of Kanto, Deep Dive keeps its low-frequency depth-based standalone encounter bands.
+
+## Salvage across Kanto
+
+The generated seabed supports sparse procedural salvage. Larger water bodies receive a small number of deterministic signals biased toward deeper/interior water.
+
+After horizontal world scaling, salvage coordinates are expanded with the seabed so they remain correctly positioned. Signal hints are:
+
+- `SIGNAL BELOW` — the nearby salvage point is deeper than the player;
+- `SIGNAL ABOVE` — it is shallower;
+- `A SALVAGE` — the player is close enough horizontally and vertically to collect it.
+
+## Underwater rendering
+
+The voxel renderer builds geometry directly from the generated hydrology/depth masks.
+
+It includes:
+
+- floor height per generated depth run;
+- vertical transitions between neighboring depth levels;
+- shoreline walls only where underwater water really ends;
+- no artificial wall beneath inferred bridges, docks or pontoons;
+- exact open map seams;
+- dark-blue distant boundaries instead of a black void;
+- a blue overhead surface plane;
+- biome-specific seabed colors and depth lighting.
 
 ## Depth controls
 
-Deep Dive uses a stable fixed-step depth path so vertical swimming remains responsive even when other overworld mods install their own update wrappers.
+- `R2` / `Page Up` — ascend;
+- `L2` / `Page Down` — descend;
+- hold `B` — swim boost;
+- normal 1ST/3RD renderer movement — horizontal swimming;
+- `SURFACE` — return to the corresponding real surface-water cell.
 
-Controls:
+## Dramatic Sky Ride / Wild Skies compatibility
 
-- free movement: renderer 1ST/3RD movement controls;
-- `R2` / `Page Up`: ascend;
-- `L2` / `Page Down`: descend;
-- hold `B`: swim boost;
-- `SURFACE`: return through Deep Dive's authored surface links.
+Deep Dive does not self-heal or rewrite the Sky-family `OverworldState.update` wrapper chain.
 
-## Wild Skies and Dramatic Sky Ride compatibility
+The compatibility lessons from the `0.4.0` cycle remain enforced:
 
-Dramatic Sky Ride and Wild Skies are optional.
+- no `UpdateHookGuard`;
+- no `TransitionWatchdog`;
+- depth and generated-world systems prefer public/fixed-step hooks;
+- DIVE/SURFACE cinematic staging is bypassed when a known conflicting Sky/Wilds composition is active;
+- the complete underwater runtime still activates after the safe warp.
 
-Deep Dive deliberately avoids self-healing or rewriting their `OverworldState.update` wrapper chain. Earlier experimental guards could create circular wrapper chains; the release uses public/fixed-step seams instead.
+## HM06 WHIRLPOOL / HM07 WATERFALL / HM08 DIVE
 
-When Sky-family compatibility is detected, DIVE/SURFACE uses the safe travel path rather than forcing a cinematic through a conflicting overworld wrapper chain. Once underwater, the full Deep Dive runtime remains active.
+Deep Dive provides:
 
-## HM06 WHIRLPOOL and HM07 WATERFALL
+- **HM06 WHIRLPOOL** — Generation II move data and authored whirlpool barriers;
+- **HM07 WATERFALL** — Generation II move data, free descent and gated ascent;
+- **HM08 DIVE** — independent underwater travel and free-depth gameplay.
 
-Deep Dive also provides the two Crystal water HMs as standalone Gen1Recomp mechanics:
+Crystal 251 remains optional and is integrated additively when installed.
 
-- **HM06 WHIRLPOOL** uses the Generation II move (`15` power, `70` accuracy, `15` PP) and removes authored whirlpool barriers for the current map visit, like Crystal;
-- **HM07 WATERFALL** uses the Generation II move (`80` power, `100` accuracy, `15` PP), allows climbing authored waterfalls while descending remains free, like Crystal;
-- Generation I compatibility follows Pokémon Crystal's HM learnsets;
-- extended HMs are protected from move deletion;
-- Kanto uses the 7th/8th Kanto badges (`VOLCANOBADGE` / `EARTHBADGE`) as progression equivalents for Crystal's 7th/8th badge field-move gates.
+## Obtaining HM08 DIVE
 
-When Crystal 251 is absent, Deep Dive supplies the moves, HM items and standalone Kanto acquisition points. When Crystal 251 is installed, its `WHIRLPOOL`, `WATERFALL`, `HM_06`, `HM_07` and imported Pokémon compatibility are reused instead of duplicated.
+A fixed researcher stands **outside on Cinnabar Island, immediately to the left of the Pokémon Lab**.
 
-The public exports `registerWhirlpool`, `registerWaterfall`, `canWhirlpoolHere` and `canWaterfallHere` let other map/content mods add compatible field-move regions.
+Talk to him and he gives **HM08 DIVE immediately**. There is **no badge requirement, no Blaine requirement and no story/TM35 prerequisite for obtaining HM08**. If HM08 is already in the bag, he simply reminds the player how to use it.
 
-## In-game WHIRLPOOL / WATERFALL showcase
+The normal field-move eligibility rules still apply when actually using DIVE.
 
-DIVE keeps its own presentation. The release also contains two authored examples for the Crystal mechanics:
+## Renderer requirements
 
-- **Route 20 — HM06 WHIRLPOOL:** the Seafoam channel has a whirlpool spanning `x=49..50`, covering the full 4-cell channel height. It physically blocks Surf travel until WHIRLPOOL is used while facing it.
-- **Route 21 — HM07 WATERFALL:** the central Route 21 current has a 14-cell-wide waterfall at `y=50..51`. The player can descend through the current normally, but must use WATERFALL from below to return north.
+Supported voxel providers:
 
-## Crystal 251
-
-Crystal 251 is optional. When installed, Deep Dive additively enables DIVE for the canonical Generation II R/S/E-compatible species without replacing Crystal's complete TM/HM lists.
-
-Supported DIVE compatibility:
-
-`TOTODILE`, `CROCONAW`, `FERALIGATR`, `CHINCHOU`, `LANTURN`, `MARILL`, `AZUMARILL`, `POLITOED`, `WOOPER`, `QUAGSIRE`, `SLOWKING`, `QWILFISH`, `REMORAID`, `OCTILLERY`, `MANTINE`, `KINGDRA`, `SUICUNE`, `LUGIA`.
-
-Mount suitability is intentionally separate. Small or visually unsuitable DIVE users are not automatically used as rideable underwater mounts.
-
-## Renderer compatibility
-
-Deep Dive supports either:
-
-- **Battle Art Voxel Fork** — recommended; or
+- **Battle Art Voxel Fork** `>=1.7.6 <2.0.0` — recommended;
 - **Dramaless Shape** — supported alternative.
 
-`VoxelProvider.lua` discovers the installed renderer through its public library API and supplies the same provider to free movement, underwater lighting and custom 3D geometry.
-
-Dramatic Sky Ride remains optional. Deep Dive does not depend on it for mounts and does not add a competing `Player:draw()` path.
-
-## Mount sprites
-
-The active party is searched for a Pokémon that:
-
-1. knows `DIVE`;
-2. is considered visually suitable by Deep Dive's mount policy;
-3. has an available compatible follower/overworld sprite.
-
-Wilds of Kanto and maintained follower providers can supply these sprites. The normal following Pokémon is suspended while submerged so the mount is not duplicated beside the player.
-
-## Compatibility design
-
-The release intentionally follows several rules that came out of the compatibility testing cycle:
-
-- strict Gen1Recomp event namespace: `mod.DRAMATIC_DEEP_DIVE.*`;
-- no dynamic rewriting of Sky Ride / Wild Skies overworld wrapper upvalues;
-- fixed-step vertical depth control;
-- compatibility-safe DIVE/SURFACE transitions;
-- optional dependencies only — Deep Dive remains an independent content mod;
-- launcher package keeps `manifest.json` and `main.lua` at archive root.
+Dramatic Sky Ride, Wild Skies and Wilds of Kanto are optional compatibility integrations, not hard dependencies.
 
 ## Validation
 
-Release CI covers:
+A dedicated **Kanto seabed contract** runs alongside compatibility and launcher-packaging workflows.
 
-- standalone Deep Dive contracts;
-- HM06/HM07/HM08 behavior;
+Automated contracts verify:
+
+- atlas scanning and connected water bodies;
+- separate surface-water and underwater-hydrology masks;
+- bridges, docks and pontoons over continuous underwater water;
+- solid causeways remain barriers;
+- exact reciprocal underwater seams;
+- DIVE/SURFACE coverage;
+- no legacy surface mask;
+- submerged cave/harbor portals;
+- **open-ocean 3x scale = 9x navigation area**;
+- reversible scaled DIVE/SURFACE coordinate mapping;
+- scaled landmarks, salvage and portal positions;
+- Wilds visible-only battle suppression;
+- HM06/HM07/HM08 contracts;
 - Crystal 251 compatibility;
-- Battle Art Voxel Fork compatibility;
-- Dramaless Shape compatibility;
-- Dramatic Sky Ride interoperability;
-- Wilds/Sky compatibility paths;
+- Battle Art / Dramaless compatibility;
+- Dramatic Sky Ride / Wild Skies compatibility;
 - launcher-ready packaging.
 
-## Version
+## Release status
 
-Current release: **0.4.0**.
+Current stable release: **Dramatic Deep Dive 0.5.0**.
+
+The Full-Kanto seabed overhaul is published on `main`. GitHub releases include a launcher-ready ZIP with `manifest.json` and `main.lua` at the archive root.

@@ -5,7 +5,6 @@ local function loadModule(mod, relativePath)
     return nil
   end
   -- Gen1Recomp 0.1.75 enforces mod.<MANIFEST_ID>.* event namespaces.
-  -- Keep legacy source modules compatible while all event references migrate.
   source = source:gsub("mod%.dramatic_deep_dive%.", "mod.DRAMATIC_DEEP_DIVE.")
   local compiler = loadstring or load
   local chunk, loadError = compiler(source, "@" .. mod.path .. "/" .. relativePath)
@@ -30,6 +29,13 @@ return function(mod)
   local HMShowcase = loadModule(mod, "src/HMShowcase.lua")
   local MountPolicy = loadModule(mod, "src/MountPolicy.lua")
   local VolumeRegistry = loadModule(mod, "src/VolumeRegistry.lua")
+  local KantoWaterAtlas = loadModule(mod, "src/KantoWaterAtlas.lua")
+  local SeabedGenerator = loadModule(mod, "src/SeabedGenerator.lua")
+  local OceanSpaceExpander = loadModule(mod, "src/OceanSpaceExpander.lua")
+  local SeabedLandmarks = loadModule(mod, "src/SeabedLandmarks.lua")
+  local SurfaceLandmarkAnchors = loadModule(mod, "src/SurfaceLandmarkAnchors.lua")
+  local SubmergedWarpLinks = loadModule(mod, "src/SubmergedWarpLinks.lua")
+  local SeamHandoff = loadModule(mod, "src/SeamHandoff.lua")
   local FollowerSprites = loadModule(mod, "src/FollowerSprites.lua")
   local FollowerBridge = loadModule(mod, "src/FollowerBridge.lua")
   local DiveTravel = loadModule(mod, "src/DiveTravel.lua")
@@ -49,66 +55,98 @@ return function(mod)
   local Salvage = loadModule(mod, "src/Salvage.lua")
   local AmbientLOD = loadModule(mod, "src/AmbientLOD.lua")
   local VoxelRenderer = loadModule(mod, "src/VoxelRenderer.lua")
+
   local volumeDefinitions = loadModule(mod, "data/volumes.lua")
   local diveDefinitions = loadModule(mod, "data/dive_links.lua")
   local sceneDefinitions = loadModule(mod, "data/scenes.lua")
   local setpieceDefinitions = loadModule(mod, "data/setpieces.lua")
   local depthEncounterDefinitions = loadModule(mod, "data/depth_encounters.lua")
   local salvageDefinitions = loadModule(mod, "data/salvage.lua")
-
+  local seabedProfiles = loadModule(mod, "data/seabed_profiles.lua")
+  local seabedLandmarkRules = loadModule(mod, "data/seabed_landmarks.lua")
 
   if not (Content and VoxelProvider and Crystal251Compat and JohtoWaterMoves
       and HMForgetGuard and HMShowcase and MountPolicy and VolumeRegistry
-      and FollowerSprites and FollowerBridge
-      and DiveTravel and StableDepthTick and SurfaceDiveMarkers
-      and Progression and DeepDive and SceneDecor and SetpieceDecor
-      and SceneGameplay and UnderwaterLighting and SubmergedTransitionGuard
-      and DiveTransition and DepthEncounters and UnderwaterWildlife and UnderwaterIntercept
-      and Salvage and AmbientLOD
+      and KantoWaterAtlas and SeabedGenerator and OceanSpaceExpander
+      and SeabedLandmarks and SurfaceLandmarkAnchors and SubmergedWarpLinks
+      and SeamHandoff and FollowerSprites and FollowerBridge and DiveTravel
+      and StableDepthTick and SurfaceDiveMarkers and Progression and DeepDive
+      and SceneDecor and SetpieceDecor and SceneGameplay and UnderwaterLighting
+      and SubmergedTransitionGuard and DiveTransition and DepthEncounters
+      and UnderwaterWildlife and UnderwaterIntercept and Salvage and AmbientLOD
       and VoxelRenderer and volumeDefinitions and diveDefinitions
       and sceneDefinitions and setpieceDefinitions and depthEncounterDefinitions
-      and salvageDefinitions) then
+      and salvageDefinitions and seabedProfiles and seabedLandmarkRules) then
     return
   end
 
   if not Content.register(mod) then return end
+
+  -- Full-Kanto generation pipeline. Surface hydrology remains the geographic
+  -- source of truth, then OceanSpaceExpander stretches that topology only in
+  -- the underwater world so open seas feel broad without changing Kanto above.
+  local atlas = KantoWaterAtlas.new(mod, seabedProfiles):build()
+  local generated = SeabedGenerator.new(mod, atlas, seabedProfiles):build()
+  local oceanSpaceExpander = OceanSpaceExpander.new(mod, atlas)
+  oceanSpaceExpander:expandTopology(generated)
+
+  local landmarkPass = SeabedLandmarks.new(mod, atlas, seabedLandmarkRules)
+  local landmarkMapCount = landmarkPass:apply(generated.scenes)
+  local surfaceAnchorPass = SurfaceLandmarkAnchors.new(mod, atlas)
+  local surfaceAnchorMaps, surfaceAnchorCount = surfaceAnchorPass:apply(generated.scenes)
+  local submergedWarpLinks = SubmergedWarpLinks.new(mod, atlas, generated.scenes)
+  local submergedPortalCount = submergedWarpLinks.count or 0
+  -- Landmarks and portal anchors are authored in surface-Kanto coordinates.
+  -- Stretch them only after all surface-aware passes have placed their points.
+  oceanSpaceExpander:expandPresentation(generated, submergedWarpLinks)
+
+  local function mergeGenerated(target, source)
+    for id, definition in pairs(source or {}) do target[id] = definition end
+  end
+  mergeGenerated(volumeDefinitions, generated.volumes)
+  mergeGenerated(diveDefinitions, generated.dives)
+  mergeGenerated(sceneDefinitions, generated.scenes)
+  mergeGenerated(setpieceDefinitions, generated.setpieces)
+  mergeGenerated(depthEncounterDefinitions, generated.encounters)
+  mergeGenerated(salvageDefinitions, generated.salvage)
+
+  if mod.log then
+    local spaceStats = oceanSpaceExpander:stats()
+    mod.log:info(
+      "Kanto water atlas: %d maps, %d water cells, %d expanded swim cells, %d connected bodies, %d edge seams, %d submerged portals, %d landmark maps, %d surface anchors",
+      atlas.stats.maps or 0, atlas.stats.waterCells or 0,
+      spaceStats.expandedSeabedCells or atlas.stats.seabedCells or 0,
+      atlas.stats.components or 0, atlas.stats.seams or 0,
+      submergedPortalCount, landmarkMapCount or 0, surfaceAnchorCount or 0)
+  end
+
   Crystal251Compat.install(mod)
 
   local johtoWater = JohtoWaterMoves.install(mod, {
     whirlpoolBadge = "VOLCANOBADGE",
     waterfallBadge = "EARTHBADGE",
     whirlpools = {
-      {
-        id = "route20_seafoam_whirlpool",
-        mapId = "ROUTE_20",
-        x = 49, y = 12, width = 2, height = 4,
-      },
+      { id = "route20_seafoam_whirlpool", mapId = "ROUTE_20", x = 49, y = 12, width = 2, height = 4 },
     },
     waterfalls = {
-      {
-        id = "route21_central_waterfall",
-        mapId = "ROUTE_21",
-        x = 3, y = 50, width = 14, height = 2,
-      },
+      { id = "route21_central_waterfall", mapId = "ROUTE_21", x = 3, y = 50, width = 14, height = 2 },
     },
   })
   if not johtoWater or not HMForgetGuard.install(mod) then return end
 
-  -- DIVE keeps its existing presentation unchanged. These one-time hints are
-  -- only for the two newly introduced Crystal field mechanics.
   HMShowcase.install(mod, {
     ROUTE_20 = {
-      id = "hm06_whirlpool_route20",
-      move = "WHIRLPOOL",
+      id = "hm06_whirlpool_route20", move = "WHIRLPOOL",
       text = "HM06 WHIRLPOOL TEST\nA whirlpool blocks the\nSeafoam channel.\fFace it while SURFing\nand use WHIRLPOOL.",
     },
     ROUTE_21 = {
-      id = "hm07_waterfall_route21",
-      move = "WATERFALL",
+      id = "hm07_waterfall_route21", move = "WATERFALL",
       text = "HM07 WATERFALL TEST\nA waterfall blocks the\ncentral current.\fDescend freely, then\nuse WATERFALL to climb.",
     },
   })
 
+  -- Kept as a functional index only. Full-Kanto mode deliberately renders no
+  -- dark surface mask: all detected water is intended to be diveable.
   local surfaceDiveMarkers = SurfaceDiveMarkers.new(mod, diveDefinitions)
   if not surfaceDiveMarkers:install() then return end
 
@@ -128,11 +166,13 @@ return function(mod)
   local sprites = FollowerSprites.new(mod)
   local followerBridge = FollowerBridge.new(mod)
   local travel = DiveTravel.new(mod, diveDefinitions)
+  oceanSpaceExpander:patchTravel(travel)
   local sceneDecor = SceneDecor.new(mod, registry, sceneDefinitions)
   local setpieceDecor = SetpieceDecor.new(mod, registry, setpieceDefinitions)
   local voxelRenderer = VoxelRenderer.new(mod, registry, sceneDecor, setpieceDecor, voxelProvider)
   local controller = DeepDive.new(mod, registry, sprites, voxelRenderer,
     followerBridge, travel, MountPolicy, voxelProvider)
+  SeamHandoff.install(mod, controller, registry)
 
   local Game = require("src.core.Game")
   local function knowsDive(mon)
@@ -182,10 +222,6 @@ return function(mod)
   local ambientLOD = AmbientLOD.new(mod, sceneDecor)
 
   controller.travel = travel
-
-  -- Keep the cinematic available for standalone Deep Dive. DiveTravel checks
-  -- for Wilds of Kanto at field-move time (including a manifest fallback) and
-  -- bypasses this transition only when Wilds is actually active.
   travel:setTransition(diveTransition)
   voxelRenderer:setController(controller)
 
@@ -194,6 +230,7 @@ return function(mod)
   Progression.install(mod)
   controller:install()
   StableDepthTick.install(mod, controller)
+  submergedWarpLinks:install(controller)
   voxelRenderer:install()
   underwaterLighting:install()
   sceneGameplay:install()
@@ -203,10 +240,6 @@ return function(mod)
   ambientLOD:install()
   salvage:install()
   diveTransition:install()
-  -- Do not rewrite/self-heal OverworldState.update here. Sky-family mods
-  -- (Dramatic Sky Ride / Wild Skies) already own cooperative wrappers;
-  -- re-targeting their captured upvalues can create a circular update chain.
-  local updateHookGuard = nil
 
   mod.exports.voxelProvider = function() return voxelProvider:id(), voxelProvider:pipelineId() end
   mod.exports.isActive = function() return controller:isActive() end
@@ -216,10 +249,34 @@ return function(mod)
   mod.exports.currentVolume = function() return controller:currentVolume() end
   mod.exports.floorDepthAt = function(mapId, x, y) return registry:floorDepthAt(mapId, x, y) end
   mod.exports.canSwimAt = function(mapId, x, y) return registry:contains(mapId, x, y) end
+  mod.exports.allWaterDiveable = function() return true end
+  mod.exports.surfaceDiveMaskEnabled = function() return false end
+  mod.exports.waterAtlasStats = function()
+    local portalStats = submergedWarpLinks:stats()
+    local spaceStats = oceanSpaceExpander:stats()
+    return {
+      maps = atlas.stats.maps,
+      waterCells = atlas.stats.waterCells,
+      expandedSeabedCells = spaceStats.expandedSeabedCells,
+      expandedMaps = spaceStats.expandedMaps,
+      maxUnderwaterScale = spaceStats.maxScale,
+      components = atlas.stats.components,
+      seams = atlas.stats.seams,
+      submergedPortals = portalStats.portals,
+      submergedPortalTransitions = portalStats.transitions,
+      landmarkMaps = landmarkMapCount,
+      surfaceAnchorMaps = surfaceAnchorMaps,
+      surfaceAnchors = surfaceAnchorCount,
+    }
+  end
+  mod.exports.oceanSpaceStats = function() return oceanSpaceExpander:stats() end
+  mod.exports.underwaterMapFor = function(surfaceMapId) return atlas:underwaterMapId(surfaceMapId) end
+  mod.exports.surfaceMapFor = function(underwaterMapId) return atlas:surfaceMapId(underwaterMapId) end
   mod.exports.canDiveHere = function(game) return travel:canDiveHere(game) end
   mod.exports.canSurfaceHere = function(game) return travel:canSurfaceHere(game) end
   mod.exports.getDiveMarkers = function(mapId) return surfaceDiveMarkers:cellsFor(mapId) end
-  mod.exports.getVisualDiveMarkers = function(mapId) return surfaceDiveMarkers:cellsFor(mapId) end
+  mod.exports.getVisualDiveMarkers = function() return {} end
+  mod.exports.submergedWarpStats = function() return submergedWarpLinks:stats() end
   mod.exports.currentDistrict = function()
     return sceneGameplay.districtId, sceneGameplay.districtName
   end

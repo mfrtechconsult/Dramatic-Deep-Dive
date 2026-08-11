@@ -9,6 +9,20 @@ local BOUNDS_PAD = 8 * CELL
 local CEILING_LIFT = 6
 local WALL_DROP = 320
 
+local FLOOR_COLORS = {
+  coastal = { 0.17, 0.30, 0.29 },
+  ocean = { 0.12, 0.25, 0.29 },
+  harbor = { 0.22, 0.27, 0.25 },
+  volcanic = { 0.10, 0.15, 0.17 },
+  cave = { 0.10, 0.17, 0.22 },
+  freshwater = { 0.24, 0.28, 0.21 },
+  marsh = { 0.25, 0.27, 0.18 },
+}
+
+local function cellKey(x, y)
+  return tostring(x) .. ":" .. tostring(y)
+end
+
 local function addVertex(out, x, y, z, u, v, shade)
   out[#out + 1] = { x, y, z, u or 0, v or 0, shade or 1 }
 end
@@ -51,6 +65,16 @@ end
 local function volumeBounds(volume)
   local minX, minZ = math.huge, math.huge
   local maxX, maxZ = -math.huge, -math.huge
+  if volume.cellRuns then
+    for y, row in pairs(volume.cellRuns) do
+      for _, run in ipairs(row) do
+        minX = math.min(minX, run.x0 * CELL)
+        minZ = math.min(minZ, y * CELL)
+        maxX = math.max(maxX, (run.x1 + 1) * CELL)
+        maxZ = math.max(maxZ, (y + 1) * CELL)
+      end
+    end
+  end
   for _, rect in ipairs(volume.swimVolumes or {}) do
     local x0, z0, x1, z1 = bounds(rect)
     if x0 < minX then minX = x0 end
@@ -78,6 +102,7 @@ function VoxelRenderer.new(mod, registry, sceneDecor, setpieceDecor)
     activeSlot = nil,
     cache = {},
     floorTexture = nil,
+    floorTextures = {},
     waterTexture = nil,
     abyssTexture = nil,
     ceilingTexture = nil,
@@ -110,12 +135,21 @@ function VoxelRenderer:makeTexture(r, g, b)
   return ok and image or nil
 end
 
-function VoxelRenderer:textures()
-  if not self.floorTexture then self.floorTexture = self:makeTexture(0.16, 0.30, 0.30) end
+function VoxelRenderer:floorTextureFor(volume)
+  local key = volume and volume.biome or "default"
+  if self.floorTextures[key] then return self.floorTextures[key] end
+  local color = volume and volume.floorColor or FLOOR_COLORS[key] or { 0.16, 0.30, 0.30 }
+  local texture = self:makeTexture(color[1] or 0.16, color[2] or 0.30, color[3] or 0.30)
+  self.floorTextures[key] = texture
+  return texture
+end
+
+function VoxelRenderer:textures(volume)
+  local floorTexture = self:floorTextureFor(volume)
   if not self.waterTexture then self.waterTexture = self:makeTexture(0.20, 0.58, 0.80) end
   if not self.abyssTexture then self.abyssTexture = self:makeTexture(0.05, 0.16, 0.30) end
   if not self.ceilingTexture then self.ceilingTexture = self:makeTexture(0.15, 0.42, 0.66) end
-  return self.floorTexture, self.waterTexture, self.abyssTexture, self.ceilingTexture
+  return floorTexture, self.waterTexture, self.abyssTexture, self.ceilingTexture
 end
 
 function VoxelRenderer:makeMesh(vertices)
@@ -124,6 +158,67 @@ function VoxelRenderer:makeMesh(vertices)
       and love.graphics.newMesh and #vertices >= 3) then return nil end
   local ok, mesh = pcall(love.graphics.newMesh, Voxel3D.FORMAT, vertices, "triangles", "static")
   return ok and mesh or nil
+end
+
+local function addGeneratedGeometry(renderer, volume, floorVertices, waterVertices, abyssVertices)
+  local surfaceY = volume.surfaceHeight
+  for y, row in pairs(volume.cellRuns or {}) do
+    for _, run in ipairs(row) do
+      addTop(waterVertices, run.x0 * CELL, y * CELL,
+        (run.x1 + 1) * CELL, (y + 1) * CELL, surfaceY, 1.00)
+    end
+  end
+  for y, row in pairs(volume.depthRuns or {}) do
+    for _, run in ipairs(row) do
+      local floorY = surfaceY - run.floorDepth
+      addTop(floorVertices, run.x0 * CELL, y * CELL,
+        (run.x1 + 1) * CELL, (y + 1) * CELL, floorY, 0.92)
+    end
+  end
+
+  local dirs = {
+    { name = "north", dx = 0, dy = -1 },
+    { name = "south", dx = 0, dy = 1 },
+    { name = "west", dx = -1, dy = 0 },
+    { name = "east", dx = 1, dy = 0 },
+  }
+  local width, height = volume.widthCells or 0, volume.heightCells or 0
+  for y, row in pairs(volume.cellRuns or {}) do
+    for _, run in ipairs(row) do
+      for x = run.x0, run.x1 do
+        local floorDepth = renderer.registry:floorDepthAt(volume.mapId, x, y)
+          or volume.defaultFloorDepth
+        local floorY = surfaceY - floorDepth
+        for _, dir in ipairs(dirs) do
+          local nx, ny = x + dir.dx, y + dir.dy
+          local outside = nx < 0 or ny < 0 or nx >= width or ny >= height
+          local neighborDepth = not outside and renderer.registry:floorDepthAt(volume.mapId, nx, ny) or nil
+          local edgeMask = volume.connectedEdgeCells and volume.connectedEdgeCells[dir.name]
+          local connectedHere = edgeMask and edgeMask[cellKey(x, y)] == true
+
+          local x0, z0, x1, z1
+          if dir.name == "north" then x0,z0,x1,z1 = x*CELL,y*CELL,(x+1)*CELL,y*CELL
+          elseif dir.name == "south" then x0,z0,x1,z1 = (x+1)*CELL,(y+1)*CELL,x*CELL,(y+1)*CELL
+          elseif dir.name == "west" then x0,z0,x1,z1 = x*CELL,(y+1)*CELL,x*CELL,y*CELL
+          else x0,z0,x1,z1 = (x+1)*CELL,y*CELL,(x+1)*CELL,(y+1)*CELL end
+
+          if neighborDepth then
+            local neighborY = surfaceY - neighborDepth
+            if neighborY < floorY - 0.01 then
+              addWall(floorVertices, x0, z0, x1, z1, neighborY, floorY, 0.72)
+            end
+          elseif outside and connectedHere then
+            -- Only this exact water cell continues into the generated neighbor.
+          elseif outside then
+            addWall(abyssVertices, x0, z0, x1, z1,
+              floorY - WALL_DROP, surfaceY + CEILING_LIFT, 0.60)
+          else
+            addWall(floorVertices, x0, z0, x1, z1, floorY, surfaceY, 0.68)
+          end
+        end
+      end
+    end
+  end
 end
 
 function VoxelRenderer:geometry(volume)
@@ -137,20 +232,23 @@ function VoxelRenderer:geometry(volume)
   local wallBottom = baseY - WALL_DROP
   local wallTop = volume.surfaceHeight + CEILING_LIFT
 
-  for _, rect in ipairs(volume.swimVolumes) do
-    local x0, z0, x1, z1 = bounds(rect)
-    addTop(floorVertices, x0, z0, x1, z1, baseY, 0.90)
-    addTop(waterVertices, x0, z0, x1, z1, volume.surfaceHeight, 1.00)
+  if volume.cellRuns then
+    addGeneratedGeometry(self, volume, floorVertices, waterVertices, abyssVertices)
+  else
+    for _, rect in ipairs(volume.swimVolumes) do
+      local x0, z0, x1, z1 = bounds(rect)
+      addTop(floorVertices, x0, z0, x1, z1, baseY, 0.90)
+      addTop(waterVertices, x0, z0, x1, z1, volume.surfaceHeight, 1.00)
+    end
+    for _, zone in ipairs(volume.depthZones) do
+      local shelfY = volume.surfaceHeight - zone.floorDepth
+      if shelfY > baseY + 0.01 then addShelf(floorVertices, zone, baseY, shelfY) end
+    end
+    addWall(abyssVertices, minX, minZ, maxX, minZ, wallBottom, wallTop, 0.52)
+    addWall(abyssVertices, maxX, minZ, maxX, maxZ, wallBottom, wallTop, 0.62)
+    addWall(abyssVertices, maxX, maxZ, minX, maxZ, wallBottom, wallTop, 0.66)
+    addWall(abyssVertices, minX, maxZ, minX, minZ, wallBottom, wallTop, 0.56)
   end
-  for _, zone in ipairs(volume.depthZones) do
-    local shelfY = volume.surfaceHeight - zone.floorDepth
-    if shelfY > baseY + 0.01 then addShelf(floorVertices, zone, baseY, shelfY) end
-  end
-
-  addWall(abyssVertices, minX, minZ, maxX, minZ, wallBottom, wallTop, 0.52)
-  addWall(abyssVertices, maxX, minZ, maxX, maxZ, wallBottom, wallTop, 0.62)
-  addWall(abyssVertices, maxX, maxZ, minX, maxZ, wallBottom, wallTop, 0.66)
-  addWall(abyssVertices, minX, maxZ, minX, minZ, wallBottom, wallTop, 0.56)
   addTop(ceilingVertices, minX, minZ, maxX, maxZ, volume.surfaceHeight + CEILING_LIFT, 1.00)
 
   hit = {
@@ -171,7 +269,7 @@ function VoxelRenderer:drawCurrentVolume()
   if not (volume and Voxel3D and type(Voxel3D.draw) == "function") then return end
 
   local geo = self:geometry(volume)
-  local floorTexture, waterTexture, abyssTexture, ceilingTexture = self:textures()
+  local floorTexture, waterTexture, abyssTexture, ceilingTexture = self:textures(volume)
   if not (geo and floorTexture and waterTexture and abyssTexture and ceilingTexture) then return end
 
   if type(Voxel3D.seams) == "function" then Voxel3D.seams(false) end
@@ -275,6 +373,10 @@ function VoxelRenderer:invalidate()
     self.cache[id] = nil
   end
   release(self.floorTexture)
+  for key, texture in pairs(self.floorTextures or {}) do
+    release(texture)
+    self.floorTextures[key] = nil
+  end
   release(self.waterTexture)
   release(self.abyssTexture)
   release(self.ceilingTexture)

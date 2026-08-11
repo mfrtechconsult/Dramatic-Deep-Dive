@@ -255,7 +255,6 @@ function SceneDecor:addRockArch(buckets, volume, s)
   local pillar = math.max(t*1.25, w*0.16)
   addBox(out, s.x-w/2, y, s.z-t/2, s.x-w/2+pillar, y+h*0.86, s.z+t/2)
   addBox(out, s.x+w/2-pillar, y, s.z-t/2, s.x+w/2, y+h*0.86, s.z+t/2)
-  -- A stepped natural crown reads much better in voxel than a perfect beam.
   addBox(out, s.x-w/2+pillar*0.55, y+h*0.70, s.z-t*0.62,
     s.x+w/2-pillar*0.55, y+h*0.88, s.z+t*0.62)
   addBox(out, s.x-w*0.31, y+h*0.84, s.z-t*0.72,
@@ -333,11 +332,14 @@ function SceneDecor:buildScene(scene, volume)
     local rng = lcg(spec.seed)
     for _ = 1, spec.count or 0 do
       local x, z = rng(spec.x0, spec.x1), rng(spec.z0, spec.z1)
-      local h = rng(spec.minHeight or 8, spec.maxHeight or 24)
-      if spec.kind == "coral" then self:addCoral(buckets, volume, x, z, h, rng)
-      elseif spec.kind == "kelp" then self:addKelp(buckets, volume, x, z, h, rng)
-      elseif spec.kind == "crystal" then self:addCrystal(buckets, volume, x, z, h, rng(2.4, 5.2))
-      elseif spec.kind == "rock" then self:addRock(buckets, volume, x, z, h, rng, "darkStone") end
+      local cellX, cellY = math.floor(x / CELL), math.floor(z / CELL)
+      if self.registry:contains(volume.mapId, cellX, cellY) then
+        local h = rng(spec.minHeight or 8, spec.maxHeight or 24)
+        if spec.kind == "coral" then self:addCoral(buckets, volume, x, z, h, rng)
+        elseif spec.kind == "kelp" then self:addKelp(buckets, volume, x, z, h, rng)
+        elseif spec.kind == "crystal" then self:addCrystal(buckets, volume, x, z, h, rng(2.4, 5.2))
+        elseif spec.kind == "rock" then self:addRock(buckets, volume, x, z, h, rng, "darkStone") end
+      end
     end
   end
 
@@ -353,7 +355,6 @@ function SceneDecor:buildScene(scene, volume)
     end
   end
 
-  -- Volumetric-looking shafts are transparent prisms from the surface down.
   local light = bucket(buckets, "light")
   for _, shaft in ipairs(scene.lightShafts or {}) do
     local bottomY = volume.surfaceHeight - (shaft.bottomDepth or 120)
@@ -392,7 +393,6 @@ function SceneDecor:ensureFishMesh()
   if self.fishMesh then return self.fishMesh end
   local v = {}
   addBox(v, -3.6, -1.2, -1.5, 3.0, 1.2, 1.5)
-  -- Blocky tail fin.
   addTri(v, {-3.2,0,0}, {-6.4,2.5,0}, {-6.4,-2.5,0}, 0.78)
   addTri(v, {-3.2,0,0}, {-6.4,-2.5,0}, {-6.4,2.5,0}, 0.78)
   self.fishMesh = self:makeMesh(v)

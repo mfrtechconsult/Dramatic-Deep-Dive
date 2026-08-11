@@ -1,7 +1,7 @@
 {
   "id": "DRAMATIC_DEEP_DIVE",
   "name": "Dramatic Deep Dive",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "api": 2,
   "entry": "main.lua",
   "profile": "content",
@@ -24,6 +24,6 @@
     "filesystem"
   ],
   "affects_link": true,
-  "description": "Dramatic Deep Dive 0.4.0: ocean-scale 3D underwater exploration with free depth, living Pokedex-scaled Pokemon, forgiving visible encounters, Wilds/Sky compatibility, salvage, abyss scenery, HM08 DIVE, HM06 WHIRLPOOL and HM07 WATERFALL.",
+  "description": "Full-Kanto Deep Dive with deliberately expanded underwater geography: open ocean and Cinnabar use 3x horizontal scale (9x swim area), coasts, harbors and major underwater caves use 2x scale, while inland freshwater remains close to Kanto scale. HM08 is given unconditionally by a fixed researcher outside, just left of the Cinnabar Lab. Includes continuous water under bridges and pontoons, visible-only Wilds encounters, seamless underwater connections, biome-aware geology, Pokedex-scaled wildlife, salvage and HM08 DIVE.",
   "github": "mfrtechconsult/Dramatic-Deep-Dive"
 }

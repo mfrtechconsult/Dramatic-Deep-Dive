@@ -97,7 +97,7 @@ function Salvage:collect(node)
   local name = self:itemName(node.item)
   local prefix = qty > 1 and (tostring(qty) .. " ") or ""
   self:showText("Recovered " .. prefix .. name .. "!")
-  self.mod.events:emit("mod.dramatic_deep_dive.salvage", {
+  self.mod.events:emit("mod.DRAMATIC_DEEP_DIVE.salvage", {
     id = node.id,
     item = node.item,
     qty = qty,
@@ -111,8 +111,7 @@ function Salvage:tryInteract()
   local node, horizontal, vertical = self:nearestSignal()
   if not node then return false end
   if horizontal > COLLECT_RADIUS or math.abs(vertical) > DEPTH_TOLERANCE then return false end
-  self:collect(node)
-  return true
+  return self:collect(node)
 end
 
 function Salvage:update()
@@ -142,8 +141,6 @@ function Salvage:drawHint()
 
   love.graphics.push("all")
   love.graphics.setColor(0, 0, 0, 1)
-  -- Dedicated middle strip: depth HUD occupies the top, district discovery
-  -- sits lower, and SURFACE hints live at the bottom of the 144px viewport.
   Font.drawBox(1, 6, 18, 4)
   Font.draw(message, math.floor((160 - Font.width(message)) / 2), 56)
   love.graphics.pop()
@@ -152,27 +149,36 @@ end
 function Salvage:install()
   local salvage = self
 
-  local handleInput = OverworldState.handleInput
-  function OverworldState:handleInput(...)
-    if Game.overworld == self and salvage.controller and salvage.controller:isActive()
-        and Game.input and Game.input.wasPressed and Game.input:wasPressed("a") then
-      if salvage:tryInteract() then return end
+  -- Do not wrap OverworldState.update/handleInput. Wilds/Sky mods may also own
+  -- those methods; using the public fixed-step hook keeps the composition
+  -- acyclic and makes salvage survive update-wrapper replacement.
+  self.mod.hooks:wrap("input.step", function(nextFn, game, dt)
+    local result = nextFn(game, dt)
+    local state = salvage.controller and salvage.controller.state
+    local ow = game and game.overworld
+    local stack = game and game.stack
+    local top = stack and stack.top and stack:top() or nil
+    if state and state.active and ow and (not stack or top == ow) then
+      salvage:update()
+      if game.input and game.input.wasPressed and game.input:wasPressed("a") then
+        salvage:tryInteract()
+      end
+    else
+      salvage.currentSignal = nil
     end
-    return handleInput(self, ...)
-  end
-
-  local update = OverworldState.update
-  function OverworldState:update(dt, ...)
-    local result = update(self, dt, ...)
-    if Game.overworld == self then salvage:update() end
     return result
-  end
+  end, 90)
 
+  -- drawUI is presentation-only and does not participate in the Wilds/DSR
+  -- update chain that previously produced stack-overflow failures.
   local drawUI = OverworldState.drawUI
-  function OverworldState:drawUI(...)
-    local result = drawUI(self, ...)
-    if Game.overworld == self then salvage:drawHint() end
-    return result
+  if type(drawUI) == "function" and not OverworldState.__dramaticDeepDiveSalvageUiPatched then
+    OverworldState.drawUI = function(state, ...)
+      local result = drawUI(state, ...)
+      if Game.overworld == state then salvage:drawHint() end
+      return result
+    end
+    OverworldState.__dramaticDeepDiveSalvageUiPatched = true
   end
 
   self.mod.events:on("save.created", function()

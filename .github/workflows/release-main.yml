@@ -1,0 +1,88 @@
+name: Release launcher ZIP
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION=$(python3 -c 'import json; print(json.load(open("dramatic_deep_dive/manifest.json"))["version"])')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Build launcher-ready ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION='${{ steps.version.outputs.version }}'
+          ZIP="Dramatic-Deep-Dive-${VERSION}-Launcher-Ready.zip"
+          (
+            cd dramatic_deep_dive
+            zip -r "../$ZIP" . -x '*.DS_Store' '__MACOSX/*'
+          )
+          python3 - "$ZIP" <<'PY'
+          import json, sys, zipfile
+          path = sys.argv[1]
+          with zipfile.ZipFile(path) as z:
+              names = z.namelist()
+              assert 'manifest.json' in names, 'manifest.json must be at ZIP root'
+              assert 'main.lua' in names, 'main.lua must be at ZIP root'
+              assert not any(n.lower().endswith('.zip') for n in names), 'nested ZIP found'
+              manifest = json.loads(z.read('manifest.json'))
+              assert manifest['version']
+          print('launcher-ready ZIP verified:', path)
+          PY
+          sha256sum "$ZIP" > "$ZIP.sha256"
+
+      - name: Write release notes
+        shell: bash
+        run: |
+          cat > release-notes.md <<'EOF'
+          ## Dramatic Deep Dive 0.5.0
+
+          Full-Kanto free-depth HM08 DIVE overhaul for Gen1Recomp.
+
+          Highlights:
+          - generated Full-Kanto seabed atlas covering every real water area;
+          - broad open-ocean geography, including 3x scaling for ocean/Cinnabar and 2x scaling for major coastal, harbor and cave spaces;
+          - continuous underwater hydrology beneath bridges, docks and pontoons;
+          - seamless underwater route connections while preserving active depth and mount state;
+          - shore-derived bathymetry, biome-aware geology, landmarks and salvage;
+          - visible, Pokedex-scaled underwater Pokemon and forgiving 3D interception;
+          - invisible/random underwater encounters disabled when Wilds of Kanto is active;
+          - submerged cave/harbor links and renderer compatibility with Battle Art Voxel Fork / Dramaless Shape;
+          - HM06 WHIRLPOOL, HM07 WATERFALL and HM08 DIVE retained;
+          - HM08 is now given immediately by a fixed researcher outside, just left of the Cinnabar Lab, with no badge or story requirement.
+
+          The attached ZIP is ready to import directly in the Gen1Recomp launcher: `manifest.json` and `main.lua` are at the archive root.
+          EOF
+
+      - name: Create or update GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION='${{ steps.version.outputs.version }}'
+          TAG='${{ steps.version.outputs.tag }}'
+          ZIP="Dramatic-Deep-Dive-${VERSION}-Launcher-Ready.zip"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$ZIP" "$ZIP.sha256" --clobber
+            gh release edit "$TAG" --title "Dramatic Deep Dive ${VERSION}" --notes-file release-notes.md
+          else
+            gh release create "$TAG" "$ZIP" "$ZIP.sha256" --target "$GITHUB_SHA" --title "Dramatic Deep Dive ${VERSION}" --notes-file release-notes.md
+          fi
