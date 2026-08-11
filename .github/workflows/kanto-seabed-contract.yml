@@ -19,6 +19,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y lua5.4
+      - name: Test unconditional exterior HM08 researcher
+        run: lua5.4 dramatic_deep_dive/tools/test_hm08_researcher.lua
       - name: Test generated water atlas and seams
         run: lua5.4 dramatic_deep_dive/tools/test_kanto_water_atlas.lua
       - name: Test exact full-water coverage audit
