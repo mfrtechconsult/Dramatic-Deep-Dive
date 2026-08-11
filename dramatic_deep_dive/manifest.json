@@ -1,7 +1,7 @@
 {
   "id": "DRAMATIC_DEEP_DIVE",
   "name": "Dramatic Deep Dive",
-  "version": "0.6.0-alpha.1",
+  "version": "0.6.0-alpha.2",
   "api": 2,
   "entry": "main_stadium.lua",
   "profile": "content",
@@ -24,6 +24,6 @@
     "filesystem"
   ],
   "affects_link": true,
-  "description": "Full-Kanto Deep Dive 0.6 preview with animated Pokemon Stadium 2 models for nearby visible underwater wildlife when a Crystal 251 DSM4 cache is available. Stadium models use the active voxel provider's StadiumRig, smooth heading/depth motion, Pokédex-based compressed physical scale, morphology correction, effect/material animation and distance-limited LOD with automatic sprite fallback. Retains expanded Full-Kanto seabeds, visible-only Wilds encounters, seamless underwater connections, salvage and HM08 DIVE.",
+  "description": "Full-Kanto Deep Dive 0.6 preview with automatically enabled animated Pokemon Stadium 2 models for nearby visible underwater wildlife. Existing Crystal 251 DSM4 caches are consumed directly; Crystal 251 + Dramaless/Dramatic Shape can bootstrap a missing cache, and Battle Art can remain the active renderer while borrowing the compatible StadiumRig backend from Dramaless. Includes smooth underwater orientation, Pokédex-based compressed physical scale, morphology correction, source animation/material effects, distance-limited LOD and automatic 2D fallback.",
   "github": "mfrtechconsult/Dramatic-Deep-Dive"
 }
