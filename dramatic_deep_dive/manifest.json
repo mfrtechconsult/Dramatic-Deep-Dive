@@ -1,9 +1,9 @@
 {
   "id": "DRAMATIC_DEEP_DIVE",
   "name": "Dramatic Deep Dive",
-  "version": "0.5.0",
+  "version": "0.6.0-alpha.1",
   "api": 2,
-  "entry": "main.lua",
+  "entry": "main_stadium.lua",
   "profile": "content",
   "category": "GAMEPLAY",
   "game_version": "0.0.0-dev || >=0.1.69 <2.0.0",
@@ -24,6 +24,6 @@
     "filesystem"
   ],
   "affects_link": true,
-  "description": "Full-Kanto Deep Dive with deliberately expanded underwater geography: open ocean and Cinnabar use 3x horizontal scale (9x swim area), coasts, harbors and major underwater caves use 2x scale, while inland freshwater remains close to Kanto scale. HM08 is given unconditionally by a fixed researcher outside, just left of the Cinnabar Lab. Includes continuous water under bridges and pontoons, visible-only Wilds encounters, seamless underwater connections, biome-aware geology, Pokedex-scaled wildlife, salvage and HM08 DIVE.",
+  "description": "Full-Kanto Deep Dive 0.6 preview with animated Pokemon Stadium 2 models for nearby visible underwater wildlife when a Crystal 251 DSM4 cache is available. Stadium models use the active voxel provider's StadiumRig, smooth heading/depth motion, Pokédex-based compressed physical scale, morphology correction, effect/material animation and distance-limited LOD with automatic sprite fallback. Retains expanded Full-Kanto seabeds, visible-only Wilds encounters, seamless underwater connections, salvage and HM08 DIVE.",
   "github": "mfrtechconsult/Dramatic-Deep-Dive"
 }
