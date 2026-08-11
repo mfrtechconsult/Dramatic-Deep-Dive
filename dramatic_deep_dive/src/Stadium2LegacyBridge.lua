@@ -60,10 +60,9 @@ function Stadium2LegacyBridge:tagEntity(entity)
   if not (entity and entity.deepDiveWildlife and entity.species) then return false end
   if self.tagged[entity] then return true end
 
-  -- The legacy Stadium Overworld renderer already consumes pose lift, so the
-  -- existing Deep Dive wildlife pose naturally places the model at its actual
-  -- underwater depth.  We only provide an explicit Pokemon identity here;
-  -- movement, encounter state and lifetime remain owned by Deep Dive.
+  -- Stadium Overworld already consumes the pose lift produced by Deep Dive's
+  -- swimmer entity, so the delegated model inherits the exact underwater
+  -- depth. Only Pokemon identity/render ownership is delegated here.
   local ex = self:exports()
   local tagged = false
   if ex and type(ex.tag) == "function" then
@@ -73,9 +72,9 @@ function Stadium2LegacyBridge:tagEntity(entity)
     local ok, value = pcall(ex.overworld.tag, entity, entity.species)
     tagged = ok and value ~= false
   else
-    -- Current Stadium Overworld builds also infer the generic `species` field.
-    -- Keep the bridge live until its public tag export becomes available; the
-    -- entity can already be recognized meanwhile without mutating its sprite.
+    -- Current Stadium Overworld builds can also infer entity.species directly.
+    -- Keep retrying so older/newer builds that publish tag later at game.ready
+    -- receive the explicit identity without making initialization order fatal.
     return false
   end
 
@@ -105,7 +104,8 @@ end
 function Stadium2LegacyBridge:clear()
   local ex = self:exports()
   for entity in pairs(self.tagged) do
-    if ex and type(ex.untag) == "function" then pcall(ex.untag, entity)
+    if ex and type(ex.untag) == "function" then
+      pcall(ex.untag, entity)
     elseif ex and ex.overworld and type(ex.overworld.untag) == "function" then
       pcall(ex.overworld.untag, entity)
     end
@@ -122,13 +122,13 @@ function Stadium2LegacyBridge:install()
   if self.mod.hooks and self.mod.hooks.wrap then
     self.mod.hooks:wrap("input.step", function(nextFn, game, dt)
       local result = nextFn(game, dt)
-      local active = bridge.mod.exports and bridge.mod.exports.isActive
-      local okActive, isActive = type(active) == "function" and pcall(active) or false, false
-      if okActive then
-        local ok, value = pcall(active)
-        isActive = ok and value == true
+      local activeFn = bridge.mod.exports and bridge.mod.exports.isActive
+      local active = false
+      if type(activeFn) == "function" then
+        local ok, value = pcall(activeFn)
+        active = ok and value == true
       end
-      if isActive then bridge:scan() end
+      if active then bridge:scan() end
       return result
     end, 67)
   end
