@@ -4,6 +4,9 @@ local MAP_ID = "CINNABAR_ISLAND"
 local LAB_MAP_ID = "CINNABAR_LAB"
 local TEXT_ID = "TEXT_HM08_DIVE_RESEARCHER"
 local OBJECT_NAME = "MOD_HM08_DIVE_RESEARCHER"
+-- Kept as a compatibility marker for old alpha saves/tools. The new exterior
+-- researcher no longer gates the gift on this historical receipt flag.
+local LEGACY_RECEIVED_FLAG = "MOD_DRAMATIC_DEEP_DIVE_HM06_RECEIVED"
 
 local function sameCell(a, x, y)
   return a and tonumber(a.x) == x and tonumber(a.y) == y
@@ -117,6 +120,10 @@ end
 function Progression.install(mod)
   local researcher = installResearcher(mod)
   if not researcher then return nil end
+
+  -- Referencing the legacy marker here documents intentional save-key
+  -- retention without making it a prerequisite for the new gift path.
+  local _ = LEGACY_RECEIVED_FLAG
 
   -- No badge, story flag, gym clear or TM35 requirement. Ownership of HM08
   -- itself is the only idempotency check, so old saves and either Dive mod's
