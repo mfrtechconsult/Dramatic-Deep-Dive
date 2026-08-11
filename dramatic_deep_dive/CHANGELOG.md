@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.6.0
+
+- Added animated Pokemon Stadium 2 models for nearby visible underwater wildlife, with automatic 2D fallback when a model or backend is unavailable.
+- Added Pokédex-derived compressed physical scaling, morphology corrections, movement-aware animation selection, smooth underwater orientation and bounded nearest-model LOD.
+- Added support for multiple simultaneous swimmers of the same species with independent Stadium rig instances.
+- Added shared Crystal 251 Stadium 2 DSM cache support and cache bootstrap when the required importer stack is available.
+- Added official legacy `DRAMATIC_SHAPE` support alongside Battle Art Voxel Fork and Dramaless Shape.
+- When `DRAMATIC_SHAPE` and `STADIUM_OVERWORLD_MODELS` are both enabled, Deep Dive delegates underwater Pokemon rendering to the existing Stadium renderer instead of competing for VoxelScene ownership.
+- Hardened startup so HM08 progression is installed even when voxel provider discovery fails; renderer problems no longer silently remove the Cinnabar HM08 researcher.
+- Retained the Full-Kanto free-depth underwater world, visible-only Wilds encounter policy, salvage, submerged links and HM06/HM07/HM08 integration from 0.5.0.
+- GitHub release packaging now produces a launcher-ready ZIP with `manifest.json` and `main.lua` at archive root plus a SHA-256 checksum.
+
 ## 0.5.0
 
 - Promoted the Full-Kanto generated seabed overhaul to the stable release line.
